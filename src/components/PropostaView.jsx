@@ -2,12 +2,29 @@ import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
 import { isArtifact } from '../lib/platform'
-import { fmtBRL, fmtDataCurta, fmtNum, fmtPct } from '../lib/format'
+import { dadosProposta, somaDias, diasEntre, fmtISO } from '../lib/proposta'
+import { salvarDadosProposta } from '../lib/storage'
+import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
 
-export default function PropostaView({ viab, cliente, onClose }) {
+export default function PropostaView({ viab, cliente, setDb, onClose }) {
   const calc = calcular(viab)
+  const prop = dadosProposta(viab)
+  const salvarProp = (patch) => setDb((d) => salvarDadosProposta(d, viab.id, { ...prop, ...patch, dias: undefined }))
+  const setData = (data) => data && salvarProp({ data, validade: somaDias(data, prop.dias) })
+  const setDias = (txt) => {
+    const n = Math.max(0, parseInt(String(txt).replace(/\D/g, ''), 10) || 0)
+    salvarProp({ validade: somaDias(prop.data, n) })
+  }
+  const setValidade = (validade) => validade && diasEntre(prop.data, validade) >= 0 && salvarProp({ validade })
   const metas = metasSelecionadas(viab)
   const [gerando, setGerando] = useState(false)
+
+  useEffect(() => {
+    if (!viab.proposta?.data || !viab.proposta?.validade) {
+      setDb((d) => salvarDadosProposta(d, viab.id, { data: prop.data, validade: prop.validade }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viab.id])
 
   useEffect(() => {
     document.body.classList.add('printing-proposta')
@@ -60,6 +77,39 @@ export default function PropostaView({ viab, cliente, onClose }) {
         </div>
       </div>
 
+      <div className="proposta-dados no-print">
+        <label>
+          <span>Data da proposta</span>
+          <input id="prop-data" type="date" value={prop.data} onChange={(e) => setData(e.target.value)} />
+        </label>
+        <label>
+          <span>Validade (dias)</span>
+          <input
+            id="prop-dias"
+            inputMode="numeric"
+            value={prop.dias}
+            onChange={(e) => setDias(e.target.value)}
+          />
+        </label>
+        <label>
+          <span>Válida até</span>
+          <input
+            id="prop-validade"
+            type="date"
+            min={prop.data}
+            value={prop.validade}
+            onChange={(e) => setValidade(e.target.value)}
+          />
+        </label>
+        <div className="prop-atalhos">
+          {[15, 30, 60, 90].map((n) => (
+            <button key={n} className={`chip ${prop.dias === n ? 'on' : ''}`} onClick={() => setDias(n)}>
+              {n} dias
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="proposta-scroll">
         <article className="proposta-doc print-area">
           <header className="doc-head">
@@ -67,12 +117,25 @@ export default function PropostaView({ viab, cliente, onClose }) {
             <div className="doc-meta">
               <span>Proposta nº {String(viab.numero).padStart(4, '0')}</span>
               <span>Versão {viab.versao}</span>
-              <span>{fmtDataCurta(viab.updatedAt)}</span>
+              <span>Data: {fmtISO(prop.data)}</span>
             </div>
           </header>
 
           <h1>Proposta Comercial</h1>
           <p className="doc-sub">Gestão de serviços médicos</p>
+
+          <div className="doc-validade">
+            <div>
+              <span>Data da proposta</span>
+              <strong>{fmtISO(prop.data)}</strong>
+            </div>
+            <div>
+              <span>Validade</span>
+              <strong>
+                {prop.dias} dias · até {fmtISO(prop.validade)}
+              </strong>
+            </div>
+          </div>
 
           <section className="doc-client">
             <div>
@@ -163,7 +226,7 @@ export default function PropostaView({ viab, cliente, onClose }) {
           )}
 
           <footer className="doc-foot">
-            Valores mensais, já incluídos tributos. Proposta válida por 30 dias a partir da data de emissão.
+            Valores mensais, já incluídos tributos. Proposta emitida em {fmtISO(prop.data)} e válida até {fmtISO(prop.validade)} ({prop.dias} dias).
           </footer>
         </article>
       </div>

@@ -3,6 +3,7 @@ import logoUrl from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem, METAS } from './calc'
 import { fmtDataCurta } from './format'
 import { saveFile } from './platform'
+import { dadosProposta, fmtISO } from './proposta'
 
 const NAVY = 'FF1A2640'
 const GREEN = 'FF64CEAF'
@@ -67,6 +68,7 @@ const slug = (s) =>
 async function sheetProposta(wb, viab, cliente, calc) {
   const ws = wb.addWorksheet('Proposta', { views: [{ showGridLines: false }] })
   const metas = metasSelecionadas(viab)
+  const prop = dadosProposta(viab)
   const nMetas = metas.length
   ws.columns = [{ width: 3 }, { width: 52 }, ...metas.map(() => ({ width: 20 }))]
   await addLogo(wb, ws, 1, 0)
@@ -85,7 +87,8 @@ async function sheetProposta(wb, viab, cliente, calc) {
     ['Setor do hospital', cliente?.setor],
     ['Contato', [cliente?.contato, cliente?.telefone].filter(Boolean).join(' – ')],
     ['Proposta nº', `${String(viab.numero || '').padStart(4, '0')} (v${viab.versao || 1})`],
-    ['Data', fmtDataCurta(viab.updatedAt || new Date().toISOString())],
+    ['Data da proposta', fmtISO(prop.data)],
+    ['Validade', `${prop.dias} dias – válida até ${fmtISO(prop.validade)}`],
   ]
   let r = 5
   for (const [k, v] of info) {
@@ -205,7 +208,7 @@ async function sheetProposta(wb, viab, cliente, calc) {
     ws.getCell(r, 2).alignment = { wrapText: true }
     r++
   }
-  ws.getCell(r, 2).value = 'Valores mensais. Proposta válida por 30 dias.'
+  ws.getCell(r, 2).value = `Valores mensais. Proposta emitida em ${fmtISO(prop.data)} e válida até ${fmtISO(prop.validade)} (${prop.dias} dias).`
   ws.getCell(r, 2).font = { italic: true, size: 9, color: { argb: 'FF8A93A6' } }
   ws.pageSetup = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 }
 }

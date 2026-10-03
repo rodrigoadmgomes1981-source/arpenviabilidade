@@ -120,8 +120,9 @@ export default function App() {
 
       {proposta && (
         <PropostaView
-          viab={proposta}
+          viab={db.viabilidades.find((v) => v.id === proposta.id) || proposta}
           cliente={db.clientes.find((c) => c.id === proposta.clienteId)}
+          setDb={setDb}
           onClose={() => setProposta(null)}
         />
       )}

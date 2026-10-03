@@ -107,3 +107,11 @@ export function toggleOculta(db, nome) {
   const ocultas = db.ocultas.includes(nome) ? db.ocultas.filter((n) => n !== nome) : [...db.ocultas, nome]
   return { ...db, ocultas }
 }
+
+/** Atualiza só a data/validade da proposta, sem gerar nova versão da viabilidade */
+export function salvarDadosProposta(db, id, proposta) {
+  return {
+    ...db,
+    viabilidades: db.viabilidades.map((v) => (v.id === id ? { ...v, proposta: { ...v.proposta, ...proposta } } : v)),
+  }
+}

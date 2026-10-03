@@ -3,6 +3,7 @@ import { Card, Confirm, Empty } from './ui'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
 import { removeViabilidade } from '../lib/storage'
 import { fmtBRL, fmtData, fmtNum } from '../lib/format'
+import { situacaoProposta, fmtISO } from '../lib/proposta'
 
 export default function HistoricoPage({
   db,
@@ -79,6 +80,11 @@ export default function HistoricoPage({
                     <span className="hist-num">Nº {String(v.numero).padStart(4, '0')}</span>
                     <span className="pill">v{v.versao}</span>
                     <span className="pill ok">Confirmada</span>
+                    {situacaoProposta(v) && (
+                      <span className={`pill ${situacaoProposta(v) === 'vencida' ? 'danger' : 'info'}`}>
+                        {situacaoProposta(v) === 'vencida' ? 'Proposta vencida' : 'Proposta vigente'}
+                      </span>
+                    )}
                   </div>
                   <div className="hist-main">
                     <strong>{c?.nome || 'Cliente removido'}</strong>
@@ -86,6 +92,11 @@ export default function HistoricoPage({
                       {c?.setor} · {v.itens.length} especialidade(s) · {fmtNum(calc.totalHoras)} h · atualizado{' '}
                       {fmtData(v.updatedAt)}
                     </span>
+                    {v.proposta?.data && (
+                      <span className="tiny muted">
+                        Proposta de {fmtISO(v.proposta.data)} · válida até {fmtISO(v.proposta.validade)}
+                      </span>
+                    )}
                   </div>
                   <div className="hist-vals">
                     <div>
