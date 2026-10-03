@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import logoUrl from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem, METAS } from './calc'
 import { fmtDataCurta } from './format'
+import { saveFile } from './platform'
 
 const NAVY = 'FF1A2640'
 const GREEN = 'FF64CEAF'
@@ -11,6 +12,7 @@ const PCT = '0.00%'
 
 async function logoBase64() {
   try {
+    if (String(logoUrl).startsWith('data:')) return String(logoUrl).split(',')[1]
     const buf = await (await fetch(logoUrl)).arrayBuffer()
     let bin = ''
     const bytes = new Uint8Array(buf)
@@ -51,13 +53,7 @@ function download(buffer, filename) {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+  return saveFile(filename, blob)
 }
 
 const slug = (s) =>
@@ -379,7 +375,7 @@ export async function exportarViabilidadeExcel(viab, cliente) {
   await sheetViabilidade(wb, viab, cliente, calc)
   await sheetProposta(wb, viab, cliente, calc)
   const buf = await wb.xlsx.writeBuffer()
-  download(buf, `Viabilidade_${slug(cliente?.nome)}_${String(viab.numero || '').padStart(4, '0')}_v${viab.versao || 1}.xlsx`)
+  await download(buf, `Viabilidade_${slug(cliente?.nome)}_${String(viab.numero || '').padStart(4, '0')}_v${viab.versao || 1}.xlsx`)
 }
 
 export async function exportarPropostaExcel(viab, cliente) {
@@ -388,7 +384,7 @@ export async function exportarPropostaExcel(viab, cliente) {
   wb.creator = 'Arpen – Proposta'
   await sheetProposta(wb, viab, cliente, calc)
   const buf = await wb.xlsx.writeBuffer()
-  download(buf, `Proposta_${slug(cliente?.nome)}_${String(viab.numero || '').padStart(4, '0')}.xlsx`)
+  await download(buf, `Proposta_${slug(cliente?.nome)}_${String(viab.numero || '').padStart(4, '0')}.xlsx`)
 }
 
 export { GREEN }

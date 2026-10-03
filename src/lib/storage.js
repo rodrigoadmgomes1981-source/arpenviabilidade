@@ -1,10 +1,11 @@
 // Banco interno (persistido no navegador via localStorage)
 import { uid } from './format'
+import { saveFile } from './platform'
 
 const KEY = 'arpen-viabilidade-db-v1'
 
 function empty() {
-  return { clientes: [], viabilidades: [] }
+  return { clientes: [], viabilidades: [], especialidades: [], ocultas: [] }
 }
 
 export function loadDB() {
@@ -12,7 +13,12 @@ export function loadDB() {
     const raw = localStorage.getItem(KEY)
     if (!raw) return empty()
     const db = JSON.parse(raw)
-    return { clientes: db.clientes || [], viabilidades: db.viabilidades || [] }
+    return {
+      clientes: db.clientes || [],
+      viabilidades: db.viabilidades || [],
+      especialidades: db.especialidades || [],
+      ocultas: db.ocultas || [],
+    }
   } catch {
     return empty()
   }
@@ -39,6 +45,7 @@ export function upsertCliente(db, cliente) {
 
 export function removeCliente(db, id) {
   return {
+    ...db,
     clientes: db.clientes.filter((c) => c.id !== id),
     viabilidades: db.viabilidades.filter((v) => v.clienteId !== id),
   }
@@ -62,9 +69,41 @@ export function removeViabilidade(db, id) {
 
 export function exportBackup(db) {
   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `backup-viabilidade-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+  return saveFile(`backup-viabilidade-${new Date().toISOString().slice(0, 10)}.json`, blob)
+}
+
+/* ---------------- Especialidades ---------------- */
+const norm = (s) =>
+  String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+export function existeEspecialidade(lista, nome, ignorarId) {
+  return lista.some((e) => (!ignorarId || e.id !== ignorarId) && norm(e.nome) === norm(nome))
+}
+
+export function upsertEspecialidade(db, esp) {
+  const now = new Date().toISOString()
+  const nome = esp.nome.trim()
+  if (esp.id) {
+    return {
+      ...db,
+      especialidades: db.especialidades.map((e) => (e.id === esp.id ? { ...e, ...esp, nome, updatedAt: now } : e)),
+    }
+  }
+  return {
+    ...db,
+    especialidades: [...db.especialidades, { ...esp, nome, id: uid(), createdAt: now, updatedAt: now }],
+  }
+}
+
+export function removeEspecialidade(db, id) {
+  return { ...db, especialidades: db.especialidades.filter((e) => e.id !== id) }
+}
+
+export function toggleOculta(db, nome) {
+  const ocultas = db.ocultas.includes(nome) ? db.ocultas.filter((n) => n !== nome) : [...db.ocultas, nome]
+  return { ...db, ocultas }
 }

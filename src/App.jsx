@@ -3,12 +3,14 @@ import logo from './assets/arpen-logo.png'
 import { loadDB, saveDB, exportBackup } from './lib/storage'
 import ClientesPage from './components/ClientesPage'
 import ViabilidadeWizard from './components/ViabilidadeWizard'
+import EspecialidadesPage from './components/EspecialidadesPage'
 import HistoricoPage from './components/HistoricoPage'
 import PropostaView from './components/PropostaView'
 import { Toast } from './components/ui'
 
 const TABS = [
   { key: 'clientes', label: 'Clientes' },
+  { key: 'especialidades', label: 'Especialidades' },
   { key: 'viabilidade', label: 'Viabilidade' },
   { key: 'historico', label: 'Histórico' },
 ]
@@ -78,6 +80,7 @@ export default function App() {
             onHistorico={abrirHistorico}
           />
         )}
+        {tab === 'especialidades' && <EspecialidadesPage db={db} setDb={setDb} notify={notify} />}
         {tab === 'viabilidade' && (
           <ViabilidadeWizard
             key={wizardKey}
@@ -86,6 +89,7 @@ export default function App() {
             inicial={editando}
             notify={notify}
             onIrClientes={() => setTab('clientes')}
+            onIrEspecialidades={() => setTab('especialidades')}
             onNova={() => iniciarViabilidade(null)}
             onSalvo={(v) => {
               setEditando(null)

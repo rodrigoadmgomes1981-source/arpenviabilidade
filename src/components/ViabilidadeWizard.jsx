@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Card, Field, NumInput, Modal, Empty } from './ui'
-import { ESPECIALIDADES_CFM } from '../data/especialidades'
+import { catalogoEspecialidades } from '../data/especialidades'
 import { IMPOSTOS, METAS, calcular, novaViabilidade, totalImpostosPct, nomeItem } from '../lib/calc'
-import { upsertViabilidade } from '../lib/storage'
+import { upsertViabilidade, upsertEspecialidade, existeEspecialidade } from '../lib/storage'
 import { fmtBRL, fmtNum, fmtPct, parseNum, uid } from '../lib/format'
 
 const STEPS = [
@@ -14,7 +14,16 @@ const STEPS = [
   { key: 'resultado', label: 'Resultado' },
 ]
 
-export default function ViabilidadeWizard({ db, setDb, inicial, notify, onIrClientes, onNova, onSalvo }) {
+export default function ViabilidadeWizard({
+  db,
+  setDb,
+  inicial,
+  notify,
+  onIrClientes,
+  onIrEspecialidades,
+  onNova,
+  onSalvo,
+}) {
   const [viab, setViab] = useState(() =>
     inicial?.id ? structuredClone(inicial) : novaViabilidade(inicial?.clienteId || ''),
   )
@@ -104,7 +113,17 @@ export default function ViabilidadeWizard({ db, setDb, inicial, notify, onIrClie
           {step === 1 && <StepImpostos viab={viab} upd={upd} />}
           {step === 2 && <StepDespesas viab={viab} upd={upd} />}
           {step === 3 && <StepMargens viab={viab} upd={upd} calc={calc} />}
-          {step === 4 && <StepEspecialidades viab={viab} setViab={setViab} calc={calc} />}
+          {step === 4 && (
+            <StepEspecialidades
+              viab={viab}
+              setViab={setViab}
+              calc={calc}
+              db={db}
+              setDb={setDb}
+              notify={notify}
+              onIrEspecialidades={onIrEspecialidades}
+            />
+          )}
           {step === 5 && <StepResultado viab={viab} upd={upd} calc={calc} erro={validacao.resultado} />}
 
           {stepErro(STEPS[step].key) && <div className="alert">{stepErro(STEPS[step].key)}</div>}
@@ -299,14 +318,14 @@ function StepMargens({ viab, upd, calc }) {
   )
 }
 
-function StepEspecialidades({ viab, setViab, calc }) {
+function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspecialidades }) {
   const [q, setQ] = useState('')
   const [custom, setCustom] = useState('')
-  const lista = ESPECIALIDADES_CFM.filter((e) =>
-    e.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(
-      q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''),
-    ),
-  )
+  const [salvarCadastro, setSalvarCadastro] = useState(true)
+  const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const catalogo = catalogoEspecialidades(db)
+  const lista = catalogo.filter((e) => norm(e.nome).includes(norm(q)))
+  const nProprias = catalogo.filter((e) => e.origem === 'PROPRIA').length
 
   const add = (especialidade, qualificacao) =>
     setViab((v) => ({
@@ -322,7 +341,12 @@ function StepEspecialidades({ viab, setViab, calc }) {
     <>
       <Card
         title="5. Especialidades"
-        subtitle={`${ESPECIALIDADES_CFM.length} especialidades reconhecidas pelo CFM. Clique em “Com RQE” ou “Com Pós” para incluir.`}
+        subtitle={`${catalogo.length} especialidades disponíveis (CFM${nProprias ? ` + ${nProprias} cadastrada(s)` : ''}). Clique em “Com RQE” ou “Com Pós” para incluir.`}
+        actions={
+          <button className="btn ghost sm" onClick={onIrEspecialidades}>
+            Gerenciar especialidades
+          </button>
+        }
       >
         <input
           className="search full"
@@ -331,9 +355,12 @@ function StepEspecialidades({ viab, setViab, calc }) {
           onChange={(e) => setQ(e.target.value)}
         />
         <div className="esp-list">
-          {lista.map((e) => (
+          {lista.map(({ nome: e, origem }) => (
             <div key={e} className="esp-row">
-              <span>{e}</span>
+              <span>
+                {e}
+                {origem === 'PROPRIA' && <span className="pill ok inline">Cadastrada</span>}
+              </span>
               <div className="esp-btns">
                 {['RQE', 'POS'].map((ql) => (
                   <button
@@ -353,7 +380,8 @@ function StepEspecialidades({ viab, setViab, calc }) {
         </div>
         <div className="custom-add">
           <input
-            placeholder="Outro item (ex.: Coordenação Clínica, Clínico de PA)…"
+            id="esp-custom"
+            placeholder="Não achou? Digite outra especialidade ou serviço (ex.: Coordenação Clínica)…"
             value={custom}
             onChange={(e) => setCustom(e.target.value)}
           />
@@ -361,13 +389,27 @@ function StepEspecialidades({ viab, setViab, calc }) {
             className="btn ghost sm"
             disabled={!custom.trim()}
             onClick={() => {
-              add(custom.trim(), 'LIVRE')
+              const nome = custom.trim()
+              add(nome, 'LIVRE')
+              if (salvarCadastro && !existeEspecialidade(catalogoEspecialidades(db, { incluirOcultas: true }), nome)) {
+                setDb((d) => upsertEspecialidade(d, { nome, descricao: '' }))
+                notify(`“${nome}” cadastrada nas especialidades`)
+              }
               setCustom('')
             }}
           >
             + Adicionar
           </button>
         </div>
+        <label className="check small">
+          <input
+            id="esp-salvar-cadastro"
+            type="checkbox"
+            checked={salvarCadastro}
+            onChange={(e) => setSalvarCadastro(e.target.checked)}
+          />
+          Salvar também no cadastro de especialidades
+        </label>
       </Card>
 
       <Card title="Especialidades selecionadas" subtitle="Uma linha por especialidade: horas e valor a pagar por hora.">

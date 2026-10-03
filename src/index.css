@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --navy: #1a2640;
   --navy-2: #24345a;
   --green: #64ceaf;
@@ -286,3 +287,16 @@ textarea { resize: vertical; }
 .card-actions select, .card-actions .search { width: auto; min-width: 220px; }
 .tbl th.grp.faixa-mediana, .tbl th.grp.faixa-maxima { background: transparent; }
 .tbl td:first-child { min-width: 170px; }
+
+/* Especialidades */
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.esp-cad-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 620px; overflow: auto; }
+.esp-cad { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; flex-wrap: wrap; }
+.esp-cad.is-hidden { background: #fafbfd; }
+.esp-cad.is-hidden strong { color: var(--muted); }
+.esp-cad-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.esp-cad-tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pill.warn { background: #fff1db; color: #9a6514; }
+.pill.inline { margin-left: 8px; vertical-align: middle; }
+.note { margin: 16px 0 0; }
+.check.small { margin-top: 8px; font-size: 0.84rem; color: var(--muted); }

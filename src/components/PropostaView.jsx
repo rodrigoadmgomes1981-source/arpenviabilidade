@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
+import { isArtifact } from '../lib/platform'
 import { fmtBRL, fmtDataCurta, fmtNum, fmtPct } from '../lib/format'
 
 export default function PropostaView({ viab, cliente, onClose }) {
@@ -51,9 +52,11 @@ export default function PropostaView({ viab, cliente, onClose }) {
           >
             {gerando ? 'Gerando…' : 'Baixar Excel'}
           </button>
-          <button className="btn success" onClick={() => window.print()}>
-            Imprimir / PDF
-          </button>
+          {!isArtifact() && (
+            <button className="btn success" onClick={() => window.print()}>
+              Imprimir / PDF
+            </button>
+          )}
         </div>
       </div>
 

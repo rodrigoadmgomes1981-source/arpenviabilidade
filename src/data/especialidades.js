@@ -63,3 +63,18 @@ export const QUALIFICACOES = {
   POS: 'Com Pós',
   LIVRE: 'Sem titulação',
 }
+
+/**
+ * Catálogo usado no sistema: especialidades do CFM + cadastradas pelo usuário,
+ * sem as que foram ocultadas. Cada item: { nome, origem: 'CFM' | 'PROPRIA', valorRef? }
+ */
+export function catalogoEspecialidades(db, { incluirOcultas = false } = {}) {
+  const ocultas = new Set(db.ocultas || [])
+  const lista = [
+    ...ESPECIALIDADES_CFM.map((nome) => ({ nome, origem: 'CFM' })),
+    ...(db.especialidades || []).map((e) => ({ ...e, origem: 'PROPRIA' })),
+  ]
+  return lista
+    .filter((e) => incluirOcultas || !ocultas.has(e.nome))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
