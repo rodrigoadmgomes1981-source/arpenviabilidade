@@ -1,0 +1,70 @@
+// Banco interno (persistido no navegador via localStorage)
+import { uid } from './format'
+
+const KEY = 'arpen-viabilidade-db-v1'
+
+function empty() {
+  return { clientes: [], viabilidades: [] }
+}
+
+export function loadDB() {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return empty()
+    const db = JSON.parse(raw)
+    return { clientes: db.clientes || [], viabilidades: db.viabilidades || [] }
+  } catch {
+    return empty()
+  }
+}
+
+export function saveDB(db) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(db))
+  } catch (e) {
+    console.error('Falha ao salvar banco local', e)
+  }
+}
+
+export function upsertCliente(db, cliente) {
+  const now = new Date().toISOString()
+  if (cliente.id) {
+    return {
+      ...db,
+      clientes: db.clientes.map((c) => (c.id === cliente.id ? { ...c, ...cliente, updatedAt: now } : c)),
+    }
+  }
+  return { ...db, clientes: [...db.clientes, { ...cliente, id: uid(), createdAt: now, updatedAt: now }] }
+}
+
+export function removeCliente(db, id) {
+  return {
+    clientes: db.clientes.filter((c) => c.id !== id),
+    viabilidades: db.viabilidades.filter((v) => v.clienteId !== id),
+  }
+}
+
+export function upsertViabilidade(db, viab) {
+  const now = new Date().toISOString()
+  const existing = viab.id && db.viabilidades.find((v) => v.id === viab.id)
+  if (existing) {
+    const saved = { ...viab, updatedAt: now, versao: (existing.versao || 1) + 1 }
+    return { db: { ...db, viabilidades: db.viabilidades.map((v) => (v.id === viab.id ? saved : v)) }, saved }
+  }
+  const numero = (db.viabilidades.reduce((m, v) => Math.max(m, v.numero || 0), 0) || 0) + 1
+  const saved = { ...viab, id: uid(), numero, createdAt: now, updatedAt: now, versao: 1 }
+  return { db: { ...db, viabilidades: [...db.viabilidades, saved] }, saved }
+}
+
+export function removeViabilidade(db, id) {
+  return { ...db, viabilidades: db.viabilidades.filter((v) => v.id !== id) }
+}
+
+export function exportBackup(db) {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `backup-viabilidade-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+}
