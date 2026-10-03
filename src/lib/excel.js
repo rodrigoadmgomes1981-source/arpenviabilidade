@@ -3,7 +3,7 @@ import logoUrl from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem, METAS } from './calc'
 import { fmtDataCurta } from './format'
 import { saveFile } from './platform'
-import { dadosProposta, fmtISO } from './proposta'
+import { dadosProposta, fmtISO, dataElaboracao } from './proposta'
 
 const NAVY = 'FF1A2640'
 const GREEN = 'FF64CEAF'
@@ -233,6 +233,7 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
     ['Telefone', cliente?.telefone],
     ['Contato', cliente?.contato],
     ['Nº / versão', `${String(viab.numero || '').padStart(4, '0')} / v${viab.versao || 1}`],
+    ['Data de elaboração da proposta', fmtISO(dataElaboracao(viab))],
     ['Atualizado em', fmtDataCurta(viab.updatedAt)],
   ]
   for (const [k, v] of info) {

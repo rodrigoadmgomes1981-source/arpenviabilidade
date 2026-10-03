@@ -4,6 +4,7 @@ import { catalogoEspecialidades } from '../data/especialidades'
 import { IMPOSTOS, METAS, calcular, novaViabilidade, totalImpostosPct, nomeItem } from '../lib/calc'
 import { upsertViabilidade, upsertEspecialidade, existeEspecialidade } from '../lib/storage'
 import { fmtBRL, fmtNum, fmtPct, parseNum, uid } from '../lib/format'
+import { fmtISO, hojeISO, dataElaboracao } from '../lib/proposta'
 
 const STEPS = [
   { key: 'cliente', label: 'Cliente' },
@@ -25,9 +26,11 @@ export default function ViabilidadeWizard({
   onSalvo,
 }) {
   const [viab, setViab] = useState(() =>
-    inicial?.id ? structuredClone(inicial) : novaViabilidade(inicial?.clienteId || ''),
+    inicial?.id
+      ? { ...structuredClone(inicial), dataElaboracao: dataElaboracao(inicial) }
+      : novaViabilidade(inicial?.clienteId || ''),
   )
-  const [step, setStep] = useState(inicial?.clienteId ? 1 : 0)
+  const [step, setStep] = useState(0)
   const [confirmar, setConfirmar] = useState(false)
   const [aceite, setAceite] = useState(false)
 
@@ -40,6 +43,7 @@ export default function ViabilidadeWizard({
   const validacao = useMemo(() => {
     const e = {}
     if (!viab.clienteId) e.cliente = 'Selecione um cliente'
+    else if (!viab.dataElaboracao) e.cliente = 'Informe a data de elaboração da proposta'
     if (totalImpostosPct(viab.impostos) <= 0) e.impostos = 'Informe as alíquotas'
     if (parseNum(viab.margem.minima) <= 0) e.margens = 'Informe a margem mínima'
     if (!viab.itens.length) e.especialidades = 'Inclua ao menos uma especialidade'
@@ -177,6 +181,8 @@ export default function ViabilidadeWizard({
             <dd>
               {cliente?.nome} – {cliente?.setor}
             </dd>
+            <dt>Elaboração da proposta</dt>
+            <dd>{fmtISO(viab.dataElaboracao)}</dd>
             <dt>Tributos</dt>
             <dd>{fmtPct(calc.taxPct)}</dd>
             <dt>Despesas adm.</dt>
@@ -222,13 +228,29 @@ function StepCliente({ db, viab, upd, onIrClientes }) {
   return (
     <Card
       title="1. Cliente"
-      subtitle="Selecione o cliente do banco interno."
+      subtitle="Selecione o cliente do banco interno e informe a data de elaboração."
       actions={
         <button className="btn ghost sm" onClick={onIrClientes}>
           + Novo cliente
         </button>
       }
     >
+      <div className="elab-row">
+        <Field label="Data de Elaboração da Proposta *" hint="Data em que esta viabilidade/proposta está sendo elaborada.">
+          <input
+            id="data-elaboracao"
+            type="date"
+            value={viab.dataElaboracao || ''}
+            max="2100-12-31"
+            onChange={(e) => upd({ dataElaboracao: e.target.value })}
+          />
+        </Field>
+        {viab.dataElaboracao !== hojeISO() && (
+          <button type="button" className="btn ghost sm" onClick={() => upd({ dataElaboracao: hojeISO() })}>
+            Usar hoje
+          </button>
+        )}
+      </div>
       <input className="search full" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="pick-list">
         {lista.map((c) => (
@@ -616,6 +638,8 @@ function Resumo({ viab, calc, cliente }) {
       <dl>
         <dt>Cliente</dt>
         <dd>{cliente?.nome || '—'}</dd>
+        <dt>Elaboração</dt>
+        <dd>{fmtISO(viab.dataElaboracao)}</dd>
         <dt>Tributos</dt>
         <dd>{fmtPct(calc.taxPct)}</dd>
         <dt>Desp. adm.</dt>

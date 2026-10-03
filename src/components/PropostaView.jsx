@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
 import { isArtifact } from '../lib/platform'
-import { dadosProposta, somaDias, diasEntre, fmtISO } from '../lib/proposta'
+import { dadosProposta, somaDias, diasEntre, fmtISO, dataElaboracao } from '../lib/proposta'
 import { salvarDadosProposta } from '../lib/storage'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
 
 export default function PropostaView({ viab, cliente, setDb, onClose }) {
   const calc = calcular(viab)
   const prop = dadosProposta(viab)
+  const elab = dataElaboracao(viab)
   const salvarProp = (patch) => setDb((d) => salvarDadosProposta(d, viab.id, { ...prop, ...patch, dias: undefined }))
-  const setData = (data) => data && salvarProp({ data, validade: somaDias(data, prop.dias) })
+  const setData = (data) => data && data >= elab && salvarProp({ data, validade: somaDias(data, prop.dias) })
   const setDias = (txt) => {
     const n = Math.max(0, parseInt(String(txt).replace(/\D/g, ''), 10) || 0)
     salvarProp({ validade: somaDias(prop.data, n) })
@@ -78,9 +79,13 @@ export default function PropostaView({ viab, cliente, setDb, onClose }) {
       </div>
 
       <div className="proposta-dados no-print">
+        <div className="elab-info">
+          <span>Elaborada em</span>
+          <strong>{fmtISO(elab)}</strong>
+        </div>
         <label>
           <span>Data da proposta</span>
-          <input id="prop-data" type="date" value={prop.data} onChange={(e) => setData(e.target.value)} />
+          <input id="prop-data" type="date" min={elab} value={prop.data} onChange={(e) => setData(e.target.value)} />
         </label>
         <label>
           <span>Validade (dias)</span>

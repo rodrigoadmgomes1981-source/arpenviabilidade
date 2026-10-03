@@ -26,9 +26,22 @@ export const fmtISO = (iso) => {
 
 export const VALIDADE_PADRAO = 30
 
+/** Data de elaboração da proposta (informada no início da viabilidade) */
+export function dataElaboracao(viab) {
+  if (viab?.dataElaboracao) return viab.dataElaboracao
+  if (viab?.createdAt) {
+    const d = new Date(viab.createdAt)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  }
+  return hojeISO()
+}
+
 /** Dados da proposta salvos na viabilidade, com padrão: hoje + 30 dias */
 export function dadosProposta(viab) {
-  const data = viab?.proposta?.data || hojeISO()
+  const elab = dataElaboracao(viab)
+  const hoje = hojeISO()
+  // data de envio padrão: hoje, nunca antes da elaboração
+  const data = viab?.proposta?.data || (hoje < elab ? elab : hoje)
   const validade = viab?.proposta?.validade || somaDias(data, VALIDADE_PADRAO)
   return { data, validade, dias: diasEntre(data, validade) }
 }

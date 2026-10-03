@@ -1,4 +1,5 @@
 import { parseNum } from './format'
+import { hojeISO } from './proposta'
 
 export const METAS = [
   { key: 'minima', label: 'Meta Mínima' },
@@ -17,6 +18,7 @@ export const IMPOSTOS = [
 export function novaViabilidade(clienteId = '') {
   return {
     clienteId,
+    dataElaboracao: hojeISO(),
     impostos: { iss: '4', pis: '0,65', cofins: '3', csll: '1,08', ir: '2' },
     despAdm: '',
     margem: { minima: '', variacao: '1,2', modo: 'pp' },

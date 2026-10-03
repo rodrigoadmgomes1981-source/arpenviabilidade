@@ -3,7 +3,7 @@ import { Card, Confirm, Empty } from './ui'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
 import { removeViabilidade } from '../lib/storage'
 import { fmtBRL, fmtData, fmtNum } from '../lib/format'
-import { situacaoProposta, fmtISO } from '../lib/proposta'
+import { situacaoProposta, fmtISO, dataElaboracao } from '../lib/proposta'
 
 export default function HistoricoPage({
   db,
@@ -92,11 +92,11 @@ export default function HistoricoPage({
                       {c?.setor} · {v.itens.length} especialidade(s) · {fmtNum(calc.totalHoras)} h · atualizado{' '}
                       {fmtData(v.updatedAt)}
                     </span>
-                    {v.proposta?.data && (
-                      <span className="tiny muted">
-                        Proposta de {fmtISO(v.proposta.data)} · válida até {fmtISO(v.proposta.validade)}
-                      </span>
-                    )}
+                    <span className="tiny muted">
+                      Elaborada em {fmtISO(dataElaboracao(v))}
+                      {v.proposta?.data &&
+                        ` · proposta de ${fmtISO(v.proposta.data)} · válida até ${fmtISO(v.proposta.validade)}`}
+                    </span>
                   </div>
                   <div className="hist-vals">
                     <div>
