@@ -78,3 +78,15 @@ export function catalogoEspecialidades(db, { incluirOcultas = false } = {}) {
     .filter((e) => incluirOcultas || !ocultas.has(e.nome))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }
+
+const normNome = (s) =>
+  String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+
+/** Já existe uma especialidade com esse nome (ignorando acentos e maiúsculas)? */
+export function existeEspecialidade(lista, nome, ignorarId) {
+  return lista.some((e) => (!ignorarId || e.id !== ignorarId) && normNome(e.nome) === normNome(nome))
+}

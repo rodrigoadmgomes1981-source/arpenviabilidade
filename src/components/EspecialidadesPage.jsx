@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card, Field, Confirm, Empty } from './ui'
-import { catalogoEspecialidades } from '../data/especialidades'
-import { upsertEspecialidade, removeEspecialidade, toggleOculta, existeEspecialidade } from '../lib/storage'
+import { catalogoEspecialidades, existeEspecialidade } from '../data/especialidades'
 
 const vazio = { nome: '', descricao: '' }
 const norm = (s) =>
@@ -17,7 +16,7 @@ const FILTROS = [
   { key: 'ocultas', label: 'Ocultas' },
 ]
 
-export default function EspecialidadesPage({ db, setDb, notify }) {
+export default function EspecialidadesPage({ db, acoes, notify }) {
   const [form, setForm] = useState(vazio)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
@@ -36,23 +35,19 @@ export default function EspecialidadesPage({ db, setDb, notify }) {
 
   const usoEm = (nome) => db.viabilidades.filter((v) => v.itens.some((i) => i.especialidade === nome)).length
 
-  const salvar = (e) => {
+  const salvar = async (e) => {
     e.preventDefault()
     const nome = form.nome.trim()
     if (!nome) return setErro('Informe o nome da especialidade')
     if (existeEspecialidade(todas, nome, form.id)) return setErro('Já existe uma especialidade com esse nome')
     setErro('')
-    setDb((d) => {
-      let next = upsertEspecialidade(d, { ...form, nome, descricao: form.descricao.trim() })
-      // mantém o estado "oculta" ao renomear
-      const antigo = form.id && d.especialidades.find((x) => x.id === form.id)
-      if (antigo && antigo.nome !== nome && d.ocultas.includes(antigo.nome)) {
-        next = { ...next, ocultas: next.ocultas.map((n) => (n === antigo.nome ? nome : n)) }
-      }
-      return next
-    })
-    notify(form.id ? 'Especialidade atualizada' : 'Especialidade cadastrada')
-    setForm(vazio)
+    try {
+      await acoes.salvarEspecialidade({ ...form, nome, descricao: form.descricao.trim() })
+      notify(form.id ? 'Especialidade atualizada' : 'Especialidade cadastrada')
+      setForm(vazio)
+    } catch (err) {
+      setErro(err.message)
+    }
   }
 
   const qtdProprias = db.especialidades.length
@@ -157,7 +152,7 @@ export default function EspecialidadesPage({ db, setDb, notify }) {
                         Editar
                       </button>
                     )}
-                    <button className="btn ghost sm" onClick={() => setDb((d) => toggleOculta(d, e.nome))}>
+                    <button className="btn ghost sm" onClick={() => acoes.ocultar(e.nome, !oculta).catch((er) => notify(er.message, 'erro'))}>
                       {oculta ? 'Mostrar' : 'Ocultar'}
                     </button>
                     {e.origem === 'PROPRIA' && (
@@ -184,8 +179,13 @@ export default function EspecialidadesPage({ db, setDb, notify }) {
               : `Excluir "${excluir.nome}" do cadastro?`
           }
           onCancel={() => setExcluir(null)}
-          onConfirm={() => {
-            setDb((d) => ({ ...removeEspecialidade(d, excluir.id), ocultas: d.ocultas.filter((n) => n !== excluir.nome) }))
+          onConfirm={async () => {
+            try {
+              await acoes.excluirEspecialidade(excluir.id)
+            } catch (er) {
+              notify(er.message, 'erro')
+              return setExcluir(null)
+            }
             notify('Especialidade excluída')
             setExcluir(null)
           }}

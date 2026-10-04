@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/router" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": { "api/router.js": { "maxDuration": 60 } }
+}

@@ -1,8 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Card, Field, NumInput, Modal, Empty } from './ui'
-import { catalogoEspecialidades } from '../data/especialidades'
-import { IMPOSTOS, METAS, calcular, novaViabilidade, totalImpostosPct, nomeItem } from '../lib/calc'
-import { upsertViabilidade, upsertEspecialidade, existeEspecialidade } from '../lib/storage'
+import { catalogoEspecialidades, existeEspecialidade } from '../data/especialidades'
+import {
+  IMPOSTOS,
+  METAS,
+  TIPOS_META,
+  calcular,
+  novaViabilidade,
+  totalImpostosPct,
+  nomeItem,
+  metasSelecionadas,
+  isUnica,
+} from '../lib/calc'
 import { fmtBRL, fmtNum, fmtPct, parseNum, uid } from '../lib/format'
 import { fmtISO, hojeISO, dataElaboracao } from '../lib/proposta'
 
@@ -17,7 +26,8 @@ const STEPS = [
 
 export default function ViabilidadeWizard({
   db,
-  setDb,
+  acoes,
+  isAdmin,
   inicial,
   notify,
   onIrClientes,
@@ -28,11 +38,12 @@ export default function ViabilidadeWizard({
   const [viab, setViab] = useState(() =>
     inicial?.id
       ? { ...structuredClone(inicial), dataElaboracao: dataElaboracao(inicial) }
-      : novaViabilidade(inicial?.clienteId || ''),
+      : novaViabilidade(inicial?.clienteId || '', db.config),
   )
   const [step, setStep] = useState(0)
   const [confirmar, setConfirmar] = useState(false)
   const [aceite, setAceite] = useState(false)
+  const [salvando, setSalvando] = useState(false)
 
   const calc = useMemo(() => calcular(viab), [viab])
   const cliente = db.clientes.find((c) => c.id === viab.clienteId)
@@ -45,11 +56,13 @@ export default function ViabilidadeWizard({
     if (!viab.clienteId) e.cliente = 'Selecione um cliente'
     else if (!viab.dataElaboracao) e.cliente = 'Informe a data de elaboração da proposta'
     if (totalImpostosPct(viab.impostos) <= 0) e.impostos = 'Informe as alíquotas'
-    if (parseNum(viab.margem.minima) <= 0) e.margens = 'Informe a margem mínima'
+    if (parseNum(viab.margem.minima) <= 0) e.margens = isUnica(viab) ? 'Informe a margem' : 'Informe a margem mínima'
     if (!viab.itens.length) e.especialidades = 'Inclua ao menos uma especialidade'
     else if (viab.itens.some((i) => parseNum(i.horas) <= 0 || parseNum(i.valorHora) <= 0))
       e.especialidades = 'Preencha horas e valor/hora de todas as linhas'
-    const metasInvalidas = viab.metas.filter((k) => !calc.metas[k].valido)
+    const metasInvalidas = metasSelecionadas(viab)
+      .map((m) => m.key)
+      .filter((k) => !calc.metas[k].valido)
     if (!e.especialidades && metasInvalidas.length) e.resultado = calc.metas[metasInvalidas[0]].erro
     return e
   }, [viab, calc])
@@ -57,12 +70,18 @@ export default function ViabilidadeWizard({
   const stepErro = (k) => validacao[k]
   const podeSalvar = Object.keys(validacao).length === 0
 
-  const salvar = () => {
-    const r = upsertViabilidade(db, { ...viab, status: 'confirmada' })
-    setDb(r.db)
-    setConfirmar(false)
-    notify(editando ? 'Viabilidade atualizada no histórico' : 'Viabilidade salva no histórico')
-    onSalvo(r.saved)
+  const salvar = async () => {
+    setSalvando(true)
+    try {
+      const saved = await acoes.salvarViabilidade(viab)
+      setConfirmar(false)
+      notify(editando ? `Viabilidade atualizada (v${saved.versao})` : 'Viabilidade salva no histórico')
+      onSalvo(saved)
+    } catch (e) {
+      notify(e.message, 'erro')
+    } finally {
+      setSalvando(false)
+    }
   }
 
   if (!db.clientes.length) {
@@ -123,7 +142,8 @@ export default function ViabilidadeWizard({
               setViab={setViab}
               calc={calc}
               db={db}
-              setDb={setDb}
+              acoes={acoes}
+              isAdmin={isAdmin}
               notify={notify}
               onIrEspecialidades={onIrEspecialidades}
             />
@@ -170,8 +190,8 @@ export default function ViabilidadeWizard({
               <button className="btn ghost" onClick={() => setConfirmar(false)}>
                 Revisar
               </button>
-              <button className="btn success" disabled={!aceite} onClick={salvar}>
-                Confirmar e salvar
+              <button className="btn success" disabled={!aceite || salvando} onClick={salvar}>
+                {salvando ? 'Salvando…' : 'Confirmar e salvar'}
               </button>
             </>
           }
@@ -183,6 +203,8 @@ export default function ViabilidadeWizard({
             </dd>
             <dt>Elaboração da proposta</dt>
             <dd>{fmtISO(viab.dataElaboracao)}</dd>
+            <dt>Tipo</dt>
+            <dd>{TIPOS_META[viab.tipoMeta]}</dd>
             <dt>Tributos</dt>
             <dd>{fmtPct(calc.taxPct)}</dd>
             <dt>Despesas adm.</dt>
@@ -193,10 +215,16 @@ export default function ViabilidadeWizard({
             </dd>
             <dt>Custo total</dt>
             <dd>{fmtBRL(calc.custoTotal)}</dd>
-            {viab.metas.map((k) => (
-              <FragmentMeta key={k} m={calc.metas[k]} />
+            {metasSelecionadas(viab).map((m) => (
+              <FragmentMeta key={m.key} m={calc.metas[m.key]} />
             ))}
           </dl>
+          {editando && (
+            <p className="tiny muted">
+              Ao salvar, a viabilidade passa para a versão v{(viab.versao || 1) + 1} e as alterações ficam registradas no log
+              com o seu usuário.
+            </p>
+          )}
           <label className="check">
             <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} />
             Conferi os dados e confirmo o salvamento no histórico do cliente.
@@ -228,7 +256,7 @@ function StepCliente({ db, viab, upd, onIrClientes }) {
   return (
     <Card
       title="1. Cliente"
-      subtitle="Selecione o cliente do banco interno e informe a data de elaboração."
+      subtitle="Informe a data de elaboração, o tipo de viabilidade e o cliente."
       actions={
         <button className="btn ghost sm" onClick={onIrClientes}>
           + Novo cliente
@@ -251,7 +279,34 @@ function StepCliente({ db, viab, upd, onIrClientes }) {
           </button>
         )}
       </div>
-      <input className="search full" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="field tipo-meta">
+        <span className="field-label">Tipo de viabilidade *</span>
+        <div className="perfil-opts">
+          {[
+            ['faixas', 'Três faixas de margem: mínima, mediana e máxima (variação de 1,2 entre elas).'],
+            ['unica', 'Uma única margem e um único valor na proposta.'],
+          ].map(([k, d]) => (
+            <label key={k} className={`perfil-opt ${viab.tipoMeta === k ? 'on' : ''}`}>
+              <input
+                type="radio"
+                name="tipoMeta"
+                value={k}
+                checked={viab.tipoMeta === k}
+                onChange={() => upd({ tipoMeta: k })}
+              />
+              <strong>{TIPOS_META[k]}</strong>
+              <span className="tiny muted">{d}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <input
+        id="busca-cliente"
+        className="search full"
+        placeholder="Buscar cliente…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
       <div className="pick-list">
         {lista.map((c) => (
           <button
@@ -306,6 +361,25 @@ function StepDespesas({ viab, upd }) {
 
 function StepMargens({ viab, upd, calc }) {
   const set = (k) => (v) => upd({ margem: { ...viab.margem, [k]: v } })
+  if (isUnica(viab))
+    return (
+      <Card title="4. Margem" subtitle="Viabilidade com meta única: informe a margem desejada.">
+        <div className="narrow">
+          <Field label="Margem da proposta">
+            <NumInput id="margem-unica" value={viab.margem.minima} onChange={set('minima')} suffix="%" placeholder="0" />
+          </Field>
+        </div>
+        <div className="faixas one">
+          <div className="faixa faixa-unica">
+            <span>Meta Única</span>
+            <strong>{fmtPct(calc.faixas.unica)}</strong>
+          </div>
+        </div>
+        <p className="tiny muted">
+          Margem = lucro ÷ faturamento, após tributos, custo médico e despesas administrativas.
+        </p>
+      </Card>
+    )
   return (
     <Card
       title="4. Margem aceitável"
@@ -313,7 +387,7 @@ function StepMargens({ viab, upd, calc }) {
     >
       <div className="row-3">
         <Field label="Margem mínima aceitável">
-          <NumInput value={viab.margem.minima} onChange={set('minima')} suffix="%" placeholder="0" />
+          <NumInput id="margem-minima" value={viab.margem.minima} onChange={set('minima')} suffix="%" placeholder="0" />
         </Field>
         <Field label="Variação entre faixas">
           <NumInput value={viab.margem.variacao} onChange={set('variacao')} placeholder="1,2" />
@@ -340,7 +414,7 @@ function StepMargens({ viab, upd, calc }) {
   )
 }
 
-function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspecialidades }) {
+function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, onIrEspecialidades }) {
   const [q, setQ] = useState('')
   const [custom, setCustom] = useState('')
   const [salvarCadastro, setSalvarCadastro] = useState(true)
@@ -365,9 +439,11 @@ function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspeci
         title="5. Especialidades"
         subtitle={`${catalogo.length} especialidades disponíveis (CFM${nProprias ? ` + ${nProprias} cadastrada(s)` : ''}). Clique em “Com RQE” ou “Com Pós” para incluir.`}
         actions={
-          <button className="btn ghost sm" onClick={onIrEspecialidades}>
-            Gerenciar especialidades
-          </button>
+          isAdmin && (
+            <button className="btn ghost sm" onClick={onIrEspecialidades}>
+              Gerenciar especialidades
+            </button>
+          )
         }
       >
         <input
@@ -413,9 +489,11 @@ function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspeci
             onClick={() => {
               const nome = custom.trim()
               add(nome, 'LIVRE')
-              if (salvarCadastro && !existeEspecialidade(catalogoEspecialidades(db, { incluirOcultas: true }), nome)) {
-                setDb((d) => upsertEspecialidade(d, { nome, descricao: '' }))
-                notify(`“${nome}” cadastrada nas especialidades`)
+              if (isAdmin && salvarCadastro && !existeEspecialidade(catalogoEspecialidades(db, { incluirOcultas: true }), nome)) {
+                acoes
+                  .salvarEspecialidade({ nome, descricao: '' })
+                  .then(() => notify(`“${nome}” cadastrada nas especialidades`))
+                  .catch((e) => notify(e.message, 'erro'))
               }
               setCustom('')
             }}
@@ -423,15 +501,17 @@ function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspeci
             + Adicionar
           </button>
         </div>
-        <label className="check small">
-          <input
-            id="esp-salvar-cadastro"
-            type="checkbox"
-            checked={salvarCadastro}
-            onChange={(e) => setSalvarCadastro(e.target.checked)}
-          />
-          Salvar também no cadastro de especialidades
-        </label>
+        {isAdmin && (
+          <label className="check small">
+            <input
+              id="esp-salvar-cadastro"
+              type="checkbox"
+              checked={salvarCadastro}
+              onChange={(e) => setSalvarCadastro(e.target.checked)}
+            />
+            Salvar também no cadastro de especialidades
+          </label>
+        )}
       </Card>
 
       <Card title="Especialidades selecionadas" subtitle="Uma linha por especialidade: horas e valor a pagar por hora.">
@@ -475,8 +555,16 @@ function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspeci
                     </td>
                     <td className="num strong">{fmtBRL(calc.itens[idx]?.custo)}</td>
                     <td>
-                      <button className="icon-btn" onClick={() => rmItem(it.id)} aria-label="Remover">
-                        ×
+                      <button
+                        className="btn-del"
+                        onClick={() => rmItem(it.id)}
+                        aria-label={`Excluir ${nomeItem(it)}`}
+                        title="Excluir esta especialidade da viabilidade"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z" />
+                        </svg>
+                        Excluir
                       </button>
                     </td>
                   </tr>
@@ -500,8 +588,14 @@ function StepEspecialidades({ viab, setViab, calc, db, setDb, notify, onIrEspeci
 }
 
 function StepResultado({ viab, upd, calc, erro }) {
-  const sel = METAS.filter((m) => viab.metas.includes(m.key))
-  const proxima = !viab.metas.includes('mediana') ? 'mediana' : !viab.metas.includes('maxima') ? 'maxima' : null
+  const sel = metasSelecionadas(viab)
+  const proxima = isUnica(viab)
+    ? null
+    : !viab.metas.includes('mediana')
+      ? 'mediana'
+      : !viab.metas.includes('maxima')
+        ? 'maxima'
+        : null
   const remover = (k) =>
     upd({ metas: k === 'mediana' ? ['minima'] : viab.metas.filter((m) => m !== k) })
 
@@ -527,7 +621,7 @@ function StepResultado({ viab, upd, calc, erro }) {
               <div key={m.key} className={`meta-card faixa-${m.key}`}>
                 <div className="meta-card-head">
                   <span>{m.label}</span>
-                  {m.key !== 'minima' && (
+                  {m.key !== 'minima' && m.key !== 'unica' && (
                     <button className="icon-btn sm" onClick={() => remover(m.key)} aria-label={`Remover ${m.label}`}>
                       ×
                     </button>
@@ -602,6 +696,7 @@ function StepResultado({ viab, upd, calc, erro }) {
 
       <Card title="Observações">
         <textarea
+          id="obs-proposta"
           rows={3}
           value={viab.observacoes}
           onChange={(e) => upd({ observacoes: e.target.value })}
@@ -644,9 +739,13 @@ function Resumo({ viab, calc, cliente }) {
         <dd>{fmtPct(calc.taxPct)}</dd>
         <dt>Desp. adm.</dt>
         <dd>{fmtBRL(calc.despAdm)}</dd>
-        <dt>Margens</dt>
+        <dt>Tipo</dt>
+        <dd>{isUnica(viab) ? 'Meta única' : 'Três faixas'}</dd>
+        <dt>{isUnica(viab) ? 'Margem' : 'Margens'}</dt>
         <dd>
-          {fmtPct(calc.faixas.minima)} · {fmtPct(calc.faixas.mediana)} · {fmtPct(calc.faixas.maxima)}
+          {isUnica(viab)
+            ? fmtPct(calc.faixas.unica)
+            : `${fmtPct(calc.faixas.minima)} · ${fmtPct(calc.faixas.mediana)} · ${fmtPct(calc.faixas.maxima)}`}
         </dd>
         <dt>Especialidades</dt>
         <dd>
@@ -656,7 +755,7 @@ function Resumo({ viab, calc, cliente }) {
         <dd className="strong">{fmtBRL(calc.custoTotal)}</dd>
       </dl>
       <div className="resumo-metas">
-        {METAS.filter((m) => viab.metas.includes(m.key)).map((m) => (
+        {metasSelecionadas(viab).map((m) => (
           <div key={m.key} className={`resumo-meta faixa-${m.key}`}>
             <span>{m.label}</span>
             <strong>{calc.metas[m.key].valido ? fmtBRL(calc.metas[m.key].faturamento) : '—'}</strong>

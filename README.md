@@ -1,38 +1,58 @@
-# Arpen · Viabilidade e Propostas
+# Arpen · Viabilidade & Propostas (v2)
 
-Sistema React + Vite para estudo de viabilidade de contratos de serviços médicos e emissão de propostas.
+React + Vite no front, uma função da Vercel no back (`api/router.js`) e Postgres (Neon) como banco central.
+Mesma estrutura do Banco de Talentos e da Educação Virtual.
 
-## Como rodar
+## Publicar na Vercel (primeira vez)
+
+1. **Neon:** crie um projeto em neon.tech e copie a *Pooled connection string*.
+2. **GitHub:** suba esta pasta para um repositório.
+3. **Vercel:** *Add New → Project*, importe o repositório (framework: Vite; os padrões já servem).
+4. Em *Settings → Environment Variables*, cadastre:
+   | Variável | Valor |
+   |---|---|
+   | `DATABASE_URL` | a connection string do Neon |
+   | `JWT_SECRET` | um texto aleatório com 32+ caracteres |
+   | `ANTHROPIC_API_KEY` | chave da API do Claude (console.anthropic.com) – para os insights com IA |
+   | `ANTHROPIC_MODEL` | opcional; padrão `claude-sonnet-5-5` |
+5. Faça o deploy. As tabelas são criadas sozinhas no primeiro acesso.
+6. Abra o endereço: a primeira tela pede para **criar o administrador**. Depois ele cria os demais usuários em *Usuários*.
+
+## Rodar no computador
 
 ```bash
+cp .env.example .env   # preencha DATABASE_URL e JWT_SECRET
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # gera /dist para publicar em qualquer servidor estático
-npm run build:single  # gera dist-single/index.html (arquivo único, abre direto no navegador)
+npm run dev            # http://localhost:5173 (front + API no mesmo endereço)
 ```
 
-## Fluxo
+## Perfis
 
-1. **Clientes** – cadastro (nome, setor do hospital, telefone, contato) no banco interno.
-2. **Especialidades** – cadastro próprio (nome e descrição), além das 55 do CFM; editar, excluir e ocultar/mostrar qualquer especialidade.
-3. **Viabilidade** – etapas:
-   - Impostos: ISS, PIS, COFINS, CSLL e IR (%)
-   - Despesas administrativas (R$/mês)
-   - Margens: mínima informada; mediana e máxima com variação de 1,2 (p.p. ou multiplicador)
-   - Especialidades: 55 especialidades do CFM com botões **COM RQE** / **COM PÓS**; cada uma vira uma linha com horas e valor/hora a pagar (também aceita itens livres, ex.: Coordenação)
-   - Resultado: custo total, valor hora a faturar e faturamento total por meta (mínima + botões para adicionar mediana e máxima)
-   - **Salvar e confirmar**
-4. **Histórico** – por cliente, com edição (gera nova versão), download em Excel e **Emitir proposta** (modelo da aba "proposta": Custos operacionais, Taxas e impostos, Custo total, Taxa de administração e lucro, Valor total mensal), com impressão/PDF e Excel.
+| | Administrador | Operador |
+|---|:-:|:-:|
+| Dashboard | ✓ | |
+| Clientes: cadastrar, abrir, observações, comparar propostas | ✓ | ✓ |
+| Clientes: editar e excluir | ✓ | |
+| Viabilidades: criar, editar, emitir proposta, Excel, log | ✓ | ✓ |
+| Viabilidades: excluir | ✓ | |
+| Especialidades, Usuários, Configurações | ✓ | |
 
-## Fórmula
+Usuários são criados pelo administrador: o sistema gera o login (ex.: `maria.silva`) e uma senha provisória,
+mostrada uma única vez. No primeiro acesso o usuário cria a própria senha. O administrador pode gerar nova senha
+e desativar usuários.
+
+## O que fica registrado
+
+- **Log de cada viabilidade:** criação, cada edição (campo, valor antes e depois, versão), mudança de data/validade
+  da proposta e cada emissão – sempre com usuário, data e hora.
+- **Histórico do cliente:** observações digitadas pela equipe + eventos automáticos (cadastro, viabilidade elaborada,
+  editada, proposta emitida).
+
+## Estrutura
 
 ```
-Faturamento  = (Custo médico + Despesas adm.) / (1 − %tributos − %margem)
-Hora faturar = Hora a pagar × (Faturamento / Custo médico)
-Lucro        = Faturamento − Tributos − Custo − Despesas adm. = %margem × Faturamento
+api/router.js        função única da Vercel (todas as rotas /api/*)
+server/              rotas, autenticação, banco (schema automático), diff para logs, IA
+src/                 aplicação React
+vercel.json          rotas: /api → função; resto → index.html
 ```
-
-## Dados
-
-Os dados ficam no `localStorage` do navegador (chave `arpen-viabilidade-db-v1`). Use "Exportar backup (.json)" no rodapé para guardar uma cópia.
-Para uso multiusuário, troque `src/lib/storage.js` por chamadas a uma API/banco.

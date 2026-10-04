@@ -37,12 +37,12 @@ export function dataElaboracao(viab) {
 }
 
 /** Dados da proposta salvos na viabilidade, com padrão: hoje + 30 dias */
-export function dadosProposta(viab) {
+export function dadosProposta(viab, diasPadrao = VALIDADE_PADRAO) {
   const elab = dataElaboracao(viab)
   const hoje = hojeISO()
   // data de envio padrão: hoje, nunca antes da elaboração
   const data = viab?.proposta?.data || (hoje < elab ? elab : hoje)
-  const validade = viab?.proposta?.validade || somaDias(data, VALIDADE_PADRAO)
+  const validade = viab?.proposta?.validade || somaDias(data, Number(diasPadrao) || VALIDADE_PADRAO)
   return { data, validade, dias: diasEntre(data, validade) }
 }
 

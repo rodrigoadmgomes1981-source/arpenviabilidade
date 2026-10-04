@@ -1,8 +1,7 @@
 import ExcelJS from 'exceljs'
 import logoUrl from '../assets/arpen-logo.png'
-import { calcular, metasSelecionadas, nomeItem, METAS } from './calc'
+import { calcular, metasSelecionadas, nomeItem, metasDoTipo, TIPOS_META } from './calc'
 import { fmtDataCurta } from './format'
-import { saveFile } from './platform'
 import { dadosProposta, fmtISO, dataElaboracao } from './proposta'
 
 const NAVY = 'FF1A2640'
@@ -54,7 +53,13 @@ function download(buffer, filename) {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  return saveFile(filename, blob)
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
 }
 
 const slug = (s) =>
@@ -277,13 +282,16 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
   ws.getCell(r, 3).value = 'Margem'
   const fm = r
   r++
-  for (const m of METAS) {
+  for (const m of metasDoTipo(viab)) {
     ws.getCell(r, 2).value = m.label
     ws.getCell(r, 3).value = calc.faixas[m.key] / 100
     ws.getCell(r, 3).numFmt = PCT
     r++
   }
-  ws.getCell(r, 2).value = `Variação entre faixas: ${viab.margem.variacao} ${viab.margem.modo === 'mult' ? '(multiplicador)' : 'p.p.'}`
+  ws.getCell(r, 2).value =
+    viab.tipoMeta === 'unica'
+      ? `Tipo: ${TIPOS_META.unica}`
+      : `Variação entre faixas: ${viab.margem.variacao} ${viab.margem.modo === 'mult' ? '(multiplicador)' : 'p.p.'}`
   ws.getCell(r, 2).font = { italic: true, size: 9 }
   borderAll(ws, fm, r - 1, 2, 3)
   r += 2

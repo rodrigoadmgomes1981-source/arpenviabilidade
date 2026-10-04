@@ -1,31 +1,57 @@
 import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
-import { isArtifact } from '../lib/platform'
 import { dadosProposta, somaDias, diasEntre, fmtISO, dataElaboracao } from '../lib/proposta'
-import { salvarDadosProposta } from '../lib/storage'
-import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
+import { Confirm } from './ui'
+import { fmtBRL, fmtNum, fmtPct, fmtData } from '../lib/format'
 
-export default function PropostaView({ viab, cliente, setDb, onClose }) {
+export default function PropostaView({ viab, cliente, db, acoes, notify, onClose }) {
   const calc = calcular(viab)
-  const prop = dadosProposta(viab)
   const elab = dataElaboracao(viab)
-  const salvarProp = (patch) => setDb((d) => salvarDadosProposta(d, viab.id, { ...prop, ...patch, dias: undefined }))
-  const setData = (data) => data && data >= elab && salvarProp({ data, validade: somaDias(data, prop.dias) })
+  const [draft, setDraft] = useState(() => {
+    const p = dadosProposta(viab, db?.config?.validadeDias)
+    return { data: p.data, validade: p.validade }
+  })
+  const prop = { ...draft, dias: diasEntre(draft.data, draft.validade) }
+  const alterado = !viab.proposta || draft.data !== viab.proposta.data || draft.validade !== viab.proposta.validade
+  const setData = (data) => data && data >= elab && setDraft({ data, validade: somaDias(data, prop.dias) })
   const setDias = (txt) => {
     const n = Math.max(0, parseInt(String(txt).replace(/\D/g, ''), 10) || 0)
-    salvarProp({ validade: somaDias(prop.data, n) })
+    setDraft((d) => ({ ...d, validade: somaDias(d.data, n) }))
   }
-  const setValidade = (validade) => validade && diasEntre(prop.data, validade) >= 0 && salvarProp({ validade })
+  const setValidade = (validade) => validade && diasEntre(draft.data, validade) >= 0 && setDraft((d) => ({ ...d, validade }))
   const metas = metasSelecionadas(viab)
   const [gerando, setGerando] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const [confirmarEmissao, setConfirmarEmissao] = useState(false)
 
-  useEffect(() => {
-    if (!viab.proposta?.data || !viab.proposta?.validade) {
-      setDb((d) => salvarDadosProposta(d, viab.id, { data: prop.data, validade: prop.validade }))
+  const salvarDatas = async () => {
+    setOcupado(true)
+    try {
+      await acoes.salvarProposta(viab.id, draft)
+      notify('Datas da proposta salvas')
+      return true
+    } catch (e) {
+      notify(e.message, 'erro')
+      return false
+    } finally {
+      setOcupado(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viab.id])
+  }
+
+  const emitir = async () => {
+    setConfirmarEmissao(false)
+    if (alterado && !(await salvarDatas())) return
+    setOcupado(true)
+    try {
+      await acoes.emitirProposta(viab.id)
+      notify(viab.emitidaEm ? 'Proposta reemitida' : 'Proposta emitida')
+    } catch (e) {
+      notify(e.message, 'erro')
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   useEffect(() => {
     document.body.classList.add('printing-proposta')
@@ -51,7 +77,12 @@ export default function PropostaView({ viab, cliente, setDb, onClose }) {
   return (
     <div className="proposta-overlay">
       <div className="proposta-toolbar no-print">
-        <strong>Proposta nº {String(viab.numero).padStart(4, '0')}</strong>
+        <div className="tb-title">
+          <strong>Proposta nº {String(viab.numero).padStart(4, '0')}</strong>
+          <span className={`pill ${viab.emitidaEm ? 'ok' : 'warn'}`}>
+            {viab.emitidaEm ? `Emitida em ${fmtData(viab.emitidaEm)} por ${viab.emitidaPorNome}` : 'Ainda não emitida'}
+          </span>
+        </div>
         <div className="actions">
           <button className="btn ghost light" onClick={onClose}>
             Fechar
@@ -62,7 +93,7 @@ export default function PropostaView({ viab, cliente, setDb, onClose }) {
             onClick={async () => {
               setGerando(true)
               try {
-                await (await import('../lib/excel')).exportarPropostaExcel(viab, cliente)
+                await (await import('../lib/excel')).exportarPropostaExcel({ ...viab, proposta: draft }, cliente)
               } finally {
                 setGerando(false)
               }
@@ -70,11 +101,12 @@ export default function PropostaView({ viab, cliente, setDb, onClose }) {
           >
             {gerando ? 'Gerando…' : 'Baixar Excel'}
           </button>
-          {!isArtifact() && (
-            <button className="btn success" onClick={() => window.print()}>
-              Imprimir / PDF
-            </button>
-          )}
+          <button className="btn ghost light" onClick={() => window.print()}>
+            Imprimir / PDF
+          </button>
+          <button className="btn success" disabled={ocupado} onClick={() => setConfirmarEmissao(true)}>
+            {viab.emitidaEm ? 'Reemitir proposta' : 'Emitir proposta'}
+          </button>
         </div>
       </div>
 
@@ -113,7 +145,21 @@ export default function PropostaView({ viab, cliente, setDb, onClose }) {
             </button>
           ))}
         </div>
+        {alterado && (
+          <button className="btn success sm" disabled={ocupado} onClick={salvarDatas}>
+            Salvar datas
+          </button>
+        )}
       </div>
+      {confirmarEmissao && (
+        <Confirm
+          title={viab.emitidaEm ? 'Reemitir proposta' : 'Emitir proposta'}
+          confirmLabel={viab.emitidaEm ? 'Reemitir' : 'Emitir'}
+          message={`Registrar a emissão da proposta nº ${String(viab.numero).padStart(4, '0')} (v${viab.versao}) com data ${fmtISO(draft.data)} e validade até ${fmtISO(draft.validade)}? A emissão fica registrada no log e no histórico do cliente com o seu usuário.`}
+          onCancel={() => setConfirmarEmissao(false)}
+          onConfirm={emitir}
+        />
+      )}
 
       <div className="proposta-scroll">
         <article className="proposta-doc print-area">

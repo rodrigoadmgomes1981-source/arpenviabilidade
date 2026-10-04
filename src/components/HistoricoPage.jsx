@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Card, Confirm, Empty } from './ui'
 import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
-import { removeViabilidade } from '../lib/storage'
+import LogsModal from './LogsModal'
 import { fmtBRL, fmtData, fmtNum } from '../lib/format'
 import { situacaoProposta, fmtISO, dataElaboracao } from '../lib/proposta'
 
 export default function HistoricoPage({
   db,
-  setDb,
+  acoes,
+  isAdmin,
   notify,
+  onAbrirCliente,
   filtroCliente,
   setFiltroCliente,
   onEditar,
@@ -18,6 +20,7 @@ export default function HistoricoPage({
   const [excluir, setExcluir] = useState(null)
   const [aberto, setAberto] = useState(null)
   const [baixando, setBaixando] = useState(null)
+  const [logs, setLogs] = useState(null)
 
   const clientesById = useMemo(() => Object.fromEntries(db.clientes.map((c) => [c.id, c])), [db.clientes])
   const lista = useMemo(
@@ -48,7 +51,7 @@ export default function HistoricoPage({
       subtitle={clienteSel ? clienteSel.setor : 'Todas as viabilidades salvas e confirmadas.'}
       actions={
         <>
-          <select value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)}>
+          <select id="filtro-cliente" value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)}>
             <option value="">Todos os clientes</option>
             {[...db.clientes]
               .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
@@ -79,7 +82,7 @@ export default function HistoricoPage({
                   <div className="hist-id">
                     <span className="hist-num">Nº {String(v.numero).padStart(4, '0')}</span>
                     <span className="pill">v{v.versao}</span>
-                    <span className="pill ok">Confirmada</span>
+                    <span className={`pill ${v.emitidaEm ? 'ok' : 'warn'}`}>{v.emitidaEm ? 'Emitida' : 'Elaborada'}</span>
                     {situacaoProposta(v) && (
                       <span className={`pill ${situacaoProposta(v) === 'vencida' ? 'danger' : 'info'}`}>
                         {situacaoProposta(v) === 'vencida' ? 'Proposta vencida' : 'Proposta vigente'}
@@ -87,7 +90,9 @@ export default function HistoricoPage({
                     )}
                   </div>
                   <div className="hist-main">
-                    <strong>{c?.nome || 'Cliente removido'}</strong>
+                    <button className="as-link strong" onClick={() => onAbrirCliente(v.clienteId)}>
+                      {c?.nome || 'Cliente removido'}
+                    </button>
                     <span className="muted">
                       {c?.setor} · {v.itens.length} especialidade(s) · {fmtNum(calc.totalHoras)} h · atualizado{' '}
                       {fmtData(v.updatedAt)}
@@ -96,6 +101,11 @@ export default function HistoricoPage({
                       Elaborada em {fmtISO(dataElaboracao(v))}
                       {v.proposta?.data &&
                         ` · proposta de ${fmtISO(v.proposta.data)} · válida até ${fmtISO(v.proposta.validade)}`}
+                    </span>
+                    <span className="tiny muted">
+                      Elaborada por {v.criadoPorNome || '—'}
+                      {v.atualizadoPorNome && v.versao > 1 && ` · última alteração por ${v.atualizadoPorNome}`}
+                      {v.emitidaEm && ` · emitida por ${v.emitidaPorNome} em ${fmtData(v.emitidaEm)}`}
                     </span>
                   </div>
                   <div className="hist-vals">
@@ -115,6 +125,9 @@ export default function HistoricoPage({
                   <button className="btn ghost sm" onClick={() => setAberto(open ? null : v.id)}>
                     {open ? 'Ocultar detalhes' : 'Detalhes'}
                   </button>
+                  <button className="btn ghost sm" onClick={() => setLogs(v)}>
+                    Log de alterações
+                  </button>
                   <button className="btn ghost sm" onClick={() => onEditar(v)}>
                     Editar
                   </button>
@@ -122,11 +135,13 @@ export default function HistoricoPage({
                     {baixando === v.id ? 'Gerando…' : 'Download Excel'}
                   </button>
                   <button className="btn primary sm" onClick={() => onProposta(v)}>
-                    Emitir proposta
+                    {v.emitidaEm ? 'Ver proposta' : 'Emitir proposta'}
                   </button>
-                  <button className="btn ghost sm danger-text" onClick={() => setExcluir(v)}>
-                    Excluir
-                  </button>
+                  {isAdmin && (
+                    <button className="btn ghost sm danger-text" onClick={() => setExcluir(v)}>
+                      Excluir
+                    </button>
+                  )}
                 </div>
                 {open && (
                   <div className="table-wrap">
@@ -176,13 +191,18 @@ export default function HistoricoPage({
           confirmLabel="Excluir"
           message={`Excluir a viabilidade nº ${String(excluir.numero).padStart(4, '0')}? Esta ação não pode ser desfeita.`}
           onCancel={() => setExcluir(null)}
-          onConfirm={() => {
-            setDb((d) => removeViabilidade(d, excluir.id))
-            notify('Viabilidade excluída')
+          onConfirm={async () => {
+            try {
+              await acoes.excluirViabilidade(excluir.id)
+              notify('Viabilidade excluída')
+            } catch (e) {
+              notify(e.message, 'erro')
+            }
             setExcluir(null)
           }}
         />
       )}
+      {logs && <LogsModal viab={logs} acoes={acoes} onClose={() => setLogs(null)} />}
     </Card>
   )
 }
