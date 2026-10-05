@@ -13,6 +13,7 @@ import ConfigPage from './components/ConfigPage'
 import PropostaView from './components/PropostaView'
 import TrocarSenha from './components/TrocarSenha'
 import { Toast, PERFIS } from './components/ui'
+import ConfigPendente from './components/ConfigPendente'
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', admin: true },
@@ -61,7 +62,8 @@ export default function App() {
     })
     get('/auth/status')
       .then((s) => {
-        if (s.precisaConfigurar) setAuth({ estado: 'setup' })
+        if (s.configuracaoPendente) setAuth({ estado: 'config', faltando: s.configuracaoPendente })
+        else if (s.precisaConfigurar) setAuth({ estado: 'setup' })
         else if (s.usuario) entrar(s.usuario)
         else setAuth({ estado: 'login' })
       })
@@ -76,6 +78,7 @@ export default function App() {
   }
 
   if (auth.estado === 'carregando') return <div className="splash"><img src={logo} alt="Arpen" /></div>
+  if (auth.estado === 'config') return <ConfigPendente faltando={auth.faltando} />
   if (auth.estado === 'erro')
     return (
       <div className="splash">

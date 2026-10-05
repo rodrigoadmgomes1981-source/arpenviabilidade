@@ -5,10 +5,26 @@ import pg from 'pg'
 pg.types.setTypeParser(1082, (v) => v)
 
 let pool
+
+/** Aceita os nomes criados pela integração Neon/Vercel além de DATABASE_URL */
+export const urlBanco = () =>
+  process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL_UNPOOLED
+
+/** Variáveis obrigatórias que estão faltando no servidor */
+export function faltando() {
+  const f = []
+  if (!urlBanco()) f.push('DATABASE_URL')
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) f.push('JWT_SECRET')
+  return f
+}
 export function getPool() {
   if (!pool) {
-    const url = process.env.DATABASE_URL
-    if (!url) throw httpError(500, 'DATABASE_URL não configurada no servidor')
+    const url = urlBanco()
+    if (!url) {
+      const e = httpError(503, 'DATABASE_URL não configurada no servidor')
+      e.config = faltando()
+      throw e
+    }
     const local = /localhost|127\.0\.0\.1/.test(url)
     pool = new pg.Pool({
       connectionString: url,

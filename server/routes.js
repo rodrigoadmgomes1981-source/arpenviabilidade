@@ -1,5 +1,5 @@
 // Rotas da API (um único roteador para caber no limite de funções da Vercel)
-import { q, tx, httpError } from './db.js'
+import { q, tx, httpError, faltando } from './db.js'
 import {
   criarSessao,
   encerrarSessao,
@@ -148,12 +148,16 @@ const rota = (method, path, fn) => {
 
 /* ---------- Autenticação ---------- */
 rota('GET', '/api/auth/status', async ({ req }) => {
+  const falta = faltando()
+  if (falta.length) return { configuracaoPendente: falta }
   const { rows } = await q('SELECT count(*)::int AS n FROM usuarios')
   const u = await usuarioAtual(req)
   return { precisaConfigurar: rows[0].n === 0, usuario: u ? usuarioJson(u) : null }
 })
 
 rota('POST', '/api/auth/setup', async ({ body, res }) => {
+  const falta = faltando()
+  if (falta.length) throw httpError(503, `Configure no servidor antes de continuar: ${falta.join(', ')}`)
   const nome = texto(body.nome, 120)
   const login = texto(body.login, 60).toLowerCase()
   const senha = String(body.senha || '')
@@ -592,6 +596,6 @@ export async function handle(req, res) {
     const status = e.status || (e.code === '22P02' ? 400 : 500)
     if (status >= 500) console.error(e)
     res.statusCode = status
-    res.end(JSON.stringify({ erro: status >= 500 && !e.status ? 'Erro interno no servidor' : e.message }))
+    res.end(JSON.stringify({ erro: status >= 500 && !e.status ? `Erro no servidor: ${e.message}` : e.message }))
   }
 }

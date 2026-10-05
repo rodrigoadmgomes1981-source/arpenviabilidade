@@ -458,3 +458,31 @@ button.client-main.as-link { display: flex; flex-direction: column; gap: 2px; }
 .tab { padding: 8px 12px; font-size: 0.92rem; }
 @media (max-width: 1480px) { .brand-title, .brand-sep { display: none; } }
 @media (max-width: 1200px) { .tabs { order: 3; width: 100%; overflow-x: auto; } }
+.setup-guide { width: min(560px, 100%); }
+.env-item { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.env-item > code { font-weight: 800; color: var(--navy); font-size: 1rem; }
+.env-item code.ex { overflow-wrap: anywhere; background: var(--bg); padding: 1px 6px; border-radius: 4px; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.steps code { background: var(--bg); padding: 1px 6px; border-radius: 4px; }
+
+/* Simulador de margem */
+.sim { display: grid; grid-template-columns: auto 1fr; gap: 12px 24px; align-items: center; background: #f3f7ff; border: 1px solid #cfdcf5; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+.sim-ctrl { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+.sim-label { font-size: 0.8rem; font-weight: 700; color: var(--navy-2); }
+.sim-input { display: flex; gap: 6px; align-items: stretch; }
+.sim-input .num-input { width: 120px; }
+.sim-input .btn { font-size: 1.1rem; padding: 4px 12px; }
+.sim-range { width: 100%; accent-color: var(--navy); padding: 0; border: 0; box-shadow: none !important; }
+.sim-res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sim-res > div { background: #fff; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sim-res span { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+.sim-res strong { font-size: 1.15rem; color: var(--navy); font-variant-numeric: tabular-nums; }
+.sim-res em { font-style: normal; font-size: 0.75rem; font-weight: 700; }
+.sim-res em.up { color: var(--green-d); }
+.sim-res em.down { color: var(--danger); }
+.sim-reset { grid-column: 1 / -1; justify-self: start; font-size: 0.85rem; }
+.sim .alert { grid-column: 1 / -1; margin: 0; }
+.tbl th.sim-col, .tbl td.sim-col { background: #f3f7ff; }
+@media (max-width: 860px) { .sim { grid-template-columns: 1fr; } .sim-res { grid-template-columns: 1fr 1fr; } }
+.tbl td.num .num-input { width: 128px; }
+.tbl td.num .num-input input { min-width: 0; }

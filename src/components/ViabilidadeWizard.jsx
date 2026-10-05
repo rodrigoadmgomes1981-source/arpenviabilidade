@@ -10,6 +10,8 @@ import {
   totalImpostosPct,
   nomeItem,
   metasSelecionadas,
+  metaPrincipal,
+  faixasMargem,
   isUnica,
 } from '../lib/calc'
 import { fmtBRL, fmtNum, fmtPct, parseNum, uid } from '../lib/format'
@@ -41,6 +43,11 @@ export default function ViabilidadeWizard({
       : novaViabilidade(inicial?.clienteId || '', db.config),
   )
   const [step, setStep] = useState(0)
+  const [margemBase, setMargemBase] = useState(() => (inicial?.id ? inicial.margem?.minima : ''))
+  const irPara = (n) => {
+    if (step === 3 || !margemBase) setMargemBase(viab.margem.minima)
+    setStep(n)
+  }
   const [confirmar, setConfirmar] = useState(false)
   const [aceite, setAceite] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -121,7 +128,7 @@ export default function ViabilidadeWizard({
               className={`step ${i === step ? 'current' : ''} ${i < step && !stepErro(s.key) ? 'done' : ''} ${
                 i < step && stepErro(s.key) ? 'warn' : ''
               }`}
-              onClick={() => setStep(i)}
+              onClick={() => irPara(i)}
             >
               <span className="step-n">{i + 1}</span>
               <span className="step-l">{s.label}</span>
@@ -146,18 +153,21 @@ export default function ViabilidadeWizard({
               isAdmin={isAdmin}
               notify={notify}
               onIrEspecialidades={onIrEspecialidades}
+              margemBase={margemBase}
             />
           )}
-          {step === 5 && <StepResultado viab={viab} upd={upd} calc={calc} erro={validacao.resultado} />}
+          {step === 5 && (
+            <StepResultado viab={viab} upd={upd} setViab={setViab} calc={calc} erro={validacao.resultado} margemBase={margemBase} />
+          )}
 
           {stepErro(STEPS[step].key) && <div className="alert">{stepErro(STEPS[step].key)}</div>}
 
           <div className="wizard-nav">
-            <button className="btn ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
+            <button className="btn ghost" disabled={step === 0} onClick={() => irPara(step - 1)}>
               ← Voltar
             </button>
             {step < STEPS.length - 1 ? (
-              <button className="btn primary" onClick={() => setStep((s) => s + 1)}>
+              <button className="btn primary" onClick={() => irPara(step + 1)}>
                 Avançar →
               </button>
             ) : (
@@ -414,7 +424,7 @@ function StepMargens({ viab, upd, calc }) {
   )
 }
 
-function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, onIrEspecialidades }) {
+function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, onIrEspecialidades, margemBase }) {
   const [q, setQ] = useState('')
   const [custom, setCustom] = useState('')
   const [salvarCadastro, setSalvarCadastro] = useState(true)
@@ -431,6 +441,7 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
   const updItem = (id, patch) =>
     setViab((v) => ({ ...v, itens: v.itens.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
   const rmItem = (id) => setViab((v) => ({ ...v, itens: v.itens.filter((i) => i.id !== id) }))
+  const principal = calc.metas[metaPrincipal(viab)]
   const count = (esp, ql) => viab.itens.filter((i) => i.especialidade === esp && i.qualificacao === ql).length
 
   return (
@@ -515,6 +526,7 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
       </Card>
 
       <Card title="Especialidades selecionadas" subtitle="Uma linha por especialidade: horas e valor a pagar por hora.">
+        {viab.itens.length > 0 && <MargemSimulador viab={viab} setViab={setViab} calc={calc} base={margemBase} />}
         {viab.itens.length === 0 ? (
           <Empty title="Nenhuma especialidade incluída">Use os botões COM RQE / COM PÓS acima.</Empty>
         ) : (
@@ -527,6 +539,8 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                   <th className="num">Horas (mês)</th>
                   <th className="num">Valor hora a pagar</th>
                   <th className="num">Custo total</th>
+                  <th className="num sim-col">Hora a faturar*</th>
+                  <th className="num sim-col">Faturamento*</th>
                   <th />
                 </tr>
               </thead>
@@ -554,6 +568,8 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                       <NumInput value={it.valorHora} onChange={(v) => updItem(it.id, { valorHora: v })} prefix="R$" />
                     </td>
                     <td className="num strong">{fmtBRL(calc.itens[idx]?.custo)}</td>
+                    <td className="num sim-col">{fmtBRL(principal.linhas[idx]?.valorHoraFaturar)}</td>
+                    <td className="num sim-col">{fmtBRL(principal.linhas[idx]?.faturamento)}</td>
                     <td>
                       <button
                         className="btn-del"
@@ -577,9 +593,15 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                   <td />
                   <td className="num">{fmtBRL(calc.custoTotal)}</td>
                   <td />
+                  <td className="num sim-col">{fmtBRL(principal.faturamento)}</td>
+                  <td />
                 </tr>
               </tfoot>
             </table>
+            <p className="tiny muted pad">
+              * Calculado com a {principal.label.toLowerCase()} ({fmtPct(principal.margemPct)}). Ajuste a margem acima e o valor
+              hora a pagar na tabela para simular.
+            </p>
           </div>
         )}
       </Card>
@@ -587,8 +609,10 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
   )
 }
 
-function StepResultado({ viab, upd, calc, erro }) {
+function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
   const sel = metasSelecionadas(viab)
+  const updItem = (id, patch) =>
+    setViab((v) => ({ ...v, itens: v.itens.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
   const proxima = isUnica(viab)
     ? null
     : !viab.metas.includes('mediana')
@@ -614,6 +638,7 @@ function StepResultado({ viab, upd, calc, erro }) {
           </div>
         }
       >
+        <MargemSimulador viab={viab} setViab={setViab} calc={calc} base={margemBase} />
         <div className="meta-cards">
           {sel.map((m) => {
             const r = calc.metas[m.key]
@@ -671,7 +696,14 @@ function StepResultado({ viab, upd, calc, erro }) {
                 <tr key={it.id}>
                   <td>{nomeItem(it)}</td>
                   <td className="num">{fmtNum(it.horasN)}</td>
-                  <td className="num">{fmtBRL(it.valorHoraN)}</td>
+                  <td className="num">
+                    <NumInput
+                      value={viab.itens[idx].valorHora}
+                      onChange={(v) => updItem(it.id, { valorHora: v })}
+                      prefix="R$"
+                      aria-label={`Valor hora a pagar – ${nomeItem(it)}`}
+                    />
+                  </td>
                   <td className="num">{fmtBRL(it.custo)}</td>
                   {sel.map((m) => (
                     <FragmentCells key={m.key} l={calc.metas[m.key].linhas[idx]} />
@@ -764,4 +796,90 @@ function Resumo({ viab, calc, cliente }) {
       </div>
     </div>
   )
+}
+
+/* ------------------------- Simulador de margem ------------------------- */
+const arred = (n) => Math.round(n * 100) / 100
+const txt = (n) => String(arred(n)).replace('.', ',')
+
+/** Ajuste rápido da margem, com o resultado recalculado na hora */
+function MargemSimulador({ viab, setViab, calc, base }) {
+  const unica = isUnica(viab)
+  const atual = parseNum(viab.margem.minima)
+  const baseN = parseNum(base)
+  const setMargem = (v) => setViab((x) => ({ ...x, margem: { ...x.margem, minima: v } }))
+  const passo = (d) => setMargem(txt(Math.max(0, atual + d)))
+  const principal = calc.metas[metaPrincipal(viab)]
+  const faixas = faixasMargem(viab.margem)
+  const mudou = base !== '' && base !== undefined && arred(baseN) !== arred(atual)
+  const difFat =
+    mudou && principal.valido
+      ? principal.faturamento - calcularFat(calc, faixas, baseN)
+      : 0
+
+  return (
+    <div className="sim">
+      <div className="sim-ctrl">
+        <label className="sim-label" htmlFor="sim-margem">
+          {unica ? 'Margem' : 'Margem mínima'}
+        </label>
+        <div className="sim-input">
+          <button type="button" className="btn ghost sm" onClick={() => passo(-0.5)} aria-label="Diminuir 0,5 ponto">
+            −
+          </button>
+          <NumInput id="sim-margem" value={viab.margem.minima} onChange={setMargem} suffix="%" placeholder="0" />
+          <button type="button" className="btn ghost sm" onClick={() => passo(0.5)} aria-label="Aumentar 0,5 ponto">
+            +
+          </button>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="40"
+          step="0.5"
+          value={Math.min(40, atual)}
+          onChange={(e) => setMargem(txt(Number(e.target.value)))}
+          aria-label="Margem"
+          className="sim-range"
+        />
+        {!unica && (
+          <span className="tiny muted">
+            Mediana {fmtPct(faixas.mediana)} · Máxima {fmtPct(faixas.maxima)}
+          </span>
+        )}
+      </div>
+      <div className="sim-res">
+        <div>
+          <span>Faturamento ({unica ? 'meta única' : 'mínima'})</span>
+          <strong>{principal.valido ? fmtBRL(principal.faturamento) : '—'}</strong>
+          {mudou && principal.valido && (
+            <em className={difFat >= 0 ? 'up' : 'down'}>
+              {difFat >= 0 ? '+' : '−'}
+              {fmtBRL(Math.abs(difFat))} vs. {fmtPct(baseN)}
+            </em>
+          )}
+        </div>
+        <div>
+          <span>Lucro</span>
+          <strong>{principal.valido ? fmtBRL(principal.lucro) : '—'}</strong>
+        </div>
+        <div>
+          <span>Custo médico</span>
+          <strong>{fmtBRL(calc.custoTotal)}</strong>
+        </div>
+      </div>
+      {mudou && (
+        <button type="button" className="link sim-reset" onClick={() => setMargem(base)}>
+          Voltar para a margem informada ({fmtPct(baseN)})
+        </button>
+      )}
+      {!principal.valido && principal.erro && <div className="alert">{principal.erro}</div>}
+    </div>
+  )
+}
+
+/** Faturamento com outra margem, para mostrar a diferença */
+function calcularFat(calc, _faixas, margemPct) {
+  const div = 1 - calc.taxPct / 100 - margemPct / 100
+  return div > 0 && calc.custoTotal > 0 ? (calc.custoTotal + calc.despAdm) / div : 0
 }
