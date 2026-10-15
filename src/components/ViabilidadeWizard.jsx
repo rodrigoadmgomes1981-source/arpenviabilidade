@@ -417,13 +417,16 @@ function StepMargens({ viab, upd, calc }) {
               {m.key === 'minima' ? '' : '+'}
               {fmtPct(calc.faixas[m.key])}
             </strong>
-            {m.key !== 'minima' && <span className="tiny">sobre a mínima</span>}
+            {m.key !== 'minima' && (
+              <span className="tiny">sobre a {m.key === 'maxima' ? 'mediana' : 'mínima'}</span>
+            )}
           </div>
         ))}
       </div>
       <p className="tiny muted">
-        A meta mínima usa a margem informada (margem = lucro ÷ faturamento). Mediana e máxima aplicam o próprio % sobre
-        todos os valores da mínima: faturamento, hora a pagar, tributos e taxa de administração.
+        A meta mínima usa a margem informada (lucro ÷ faturamento) e paga o valor hora informado. A mediana sobe o % dela
+        sobre a mínima e a máxima sobe sobre a mediana: o custo médico cresce esse % e a taxa de administração cresce o
+        mesmo valor em R$.
       </p>
     </Card>
   )
@@ -658,7 +661,9 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                   )}
                 </div>
                 <div className="meta-pct">
-                  {r.acrescimoPct ? `+${fmtPct(r.acrescimoPct)} sobre a mínima` : `margem ${fmtPct(r.margemPct)}`}
+                  {r.acrescimoPct
+                    ? `+${fmtPct(r.acrescimoPct)} sobre a ${m.key === 'maxima' ? 'mediana' : 'mínima'} · margem real ${fmtPct(r.margemReal)}`
+                    : `margem ${fmtPct(r.margemPct)}`}
                 </div>
                 <dl>
                   <dt>Faturamento</dt>
@@ -666,7 +671,7 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                   <dt>Custo médico</dt>
                   <dd>
                     {fmtBRL(r.custo)}
-                    {r.fatorPagamento !== 1 && <span className="tiny pos"> (+{fmtPct((r.fatorPagamento - 1) * 100)})</span>}
+                    {r.acrescimoPct > 0 && <span className="tiny pos"> (+{fmtPct(r.acrescimoPct)})</span>}
                   </dd>
                   <dt>Tributos</dt>
                   <dd>{fmtBRL(r.impostos)}</dd>
@@ -854,7 +859,7 @@ function MargemSimulador({ viab, setViab, calc, base }) {
         />
         {!unica && (
           <span className="tiny muted">
-            Mediana +{fmtPct(faixas.mediana)} · Máxima +{fmtPct(faixas.maxima)} sobre a mínima
+            Mediana +{fmtPct(faixas.mediana)} sobre a mínima · Máxima +{fmtPct(faixas.maxima)} sobre a mediana
           </span>
         )}
       </div>

@@ -95,7 +95,7 @@ export async function gerarInsights({ cliente, viabilidades, observacoes }) {
   ].join('\n')
 
   const prompt = `Você é analista comercial da Arpen, empresa que faz gestão de serviços médicos (pronto atendimento, plantões e especialidades) para hospitais e operadoras como a Unimed.
-Compare as propostas abaixo, todas do mesmo cliente. Faturamento = (custo médico + despesas administrativas) ÷ (1 − tributos − margem). Nas metas mediana e máxima, todos os valores da meta mínima (faturamento, pagamento aos médicos, tributos e taxa de administração) são acrescidos do % da meta.
+Compare as propostas abaixo, todas do mesmo cliente. Faturamento = (custo médico + despesas administrativas) ÷ (1 − tributos − margem). As faixas são encadeadas: a mediana sobe o % dela sobre a mínima e a máxima sobre a mediana; o custo médico cresce esse % e a taxa de administração cresce o mesmo valor em R$.
 
 ${contexto}
 

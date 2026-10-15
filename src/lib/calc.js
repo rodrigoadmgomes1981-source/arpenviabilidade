@@ -79,8 +79,8 @@ export function totalImpostosPct(impostos) {
  * Cálculo de viabilidade.
  * Faturamento = (Custo + Despesas adm.) / (1 − impostos − margem)
  * O valor da hora a faturar de cada especialidade = valor hora a pagar × (Faturamento / Custo).
- * Metas mediana e máxima: tudo da meta mínima × (1 + % da meta) — faturamento, hora a pagar,
- * tributos e taxa de administração crescem no mesmo percentual.
+ * Faixas encadeadas (mediana sobre a mínima, máxima sobre a mediana): custo médico × (1 + % da faixa)
+ * e taxa de administração + o mesmo valor em R$ que o custo subiu; Faturamento = (Custo + Taxa adm.) / (1 − tributos).
  * Lucro = Faturamento − Impostos − Custo da meta − Desp. Adm.
  */
 export function calcular(viab) {
@@ -105,32 +105,28 @@ export function calcular(viab) {
     base[meta.key] = { margemPct, divisor, valido, faturamento }
   }
 
-  // 2) A meta mínima (ou única) é a base. Mediana e máxima aplicam o % da própria meta sobre a
-  //    mínima em tudo: faturamento, custo médico (hora a pagar), tributos e taxa de administração.
+  // 2) A meta mínima (ou única) é a base: paga o valor informado e cobra a margem informada.
+  //    Faixas encadeadas: a mediana sobe sobre a mínima e a máxima sobe sobre a mediana.
+  //    Em cada faixa: custo médico (hora a pagar) × (1 + % da faixa) e a taxa de administração
+  //    sobe o mesmo valor em R$ que o custo médico subiu. Tributos incidem sobre o novo faturamento.
   const metas = {}
-  const bm = base.minima
-  for (const meta of [...METAS, META_UNICA]) {
-    const { margemPct, divisor, valido } = base[meta.key]
-    const ehBase = meta.key === 'minima' || meta.key === 'unica'
-    const fatorPagamento = ehBase ? 1 : 1 + margemPct / 100
-    const faturamento = ehBase ? base[meta.key].faturamento : bm.faturamento * fatorPagamento
-    const custo = custoTotal * fatorPagamento
-    const ok = ehBase ? valido : bm.valido
-    const fator = ok && custoTotal ? faturamento / custoTotal : 0
+  const tribFrac = taxPct / 100
+  const montar = (meta, { fatorPagamento, custo, taxaAdmLucro, valido, erro }) => {
+    const faturamento = valido ? (custo + taxaAdmLucro) / (1 - tribFrac) : 0
+    const fator = valido && custoTotal ? faturamento / custoTotal : 0
     const impostosDet = IMPOSTOS.map((i) => ({
       ...i,
       aliquota: parseNum(viab.impostos?.[i.key]),
       valor: (faturamento * parseNum(viab.impostos?.[i.key])) / 100,
     }))
     const impostos = impostosDet.reduce((s, i) => s + i.valor, 0)
-    const taxaAdmLucro = faturamento - impostos - custo
     const lucro = taxaAdmLucro - despAdm
-    metas[meta.key] = {
+    return {
       ...meta,
-      margemPct,
-      acrescimoPct: ehBase ? 0 : margemPct,
-      valido: ok,
-      erro: (ehBase ? divisor : bm.divisor) <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null,
+      margemPct: faixas[meta.key],
+      acrescimoPct: meta.key === 'minima' || meta.key === 'unica' ? 0 : faixas[meta.key],
+      valido,
+      erro,
       faturamento,
       fator,
       fatorPagamento,
@@ -149,6 +145,30 @@ export function calcular(viab) {
       })),
     }
   }
+  const erroDe = (b) => (b.divisor <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null)
+  const baseMeta = (k) => {
+    const b = base[k]
+    const taxa = b.valido ? b.faturamento * (1 - tribFrac) - custoTotal : 0
+    return { fatorPagamento: 1, custo: custoTotal, taxaAdmLucro: taxa, valido: b.valido, erro: erroDe(b) }
+  }
+  const sobe = (ant, pct) => {
+    const fatorPagamento = ant.fatorPagamento * (1 + pct / 100)
+    const custo = custoTotal * fatorPagamento
+    return {
+      fatorPagamento,
+      custo,
+      taxaAdmLucro: ant.taxaAdmLucro + (custo - ant.custo),
+      valido: ant.valido,
+      erro: ant.erro,
+    }
+  }
+  const pMin = baseMeta('minima')
+  const pMed = sobe(pMin, faixas.mediana)
+  const pMax = sobe(pMed, faixas.maxima)
+  metas.minima = montar(METAS[0], pMin)
+  metas.mediana = montar(METAS[1], pMed)
+  metas.maxima = montar(METAS[2], pMax)
+  metas.unica = montar(META_UNICA, baseMeta('unica'))
 
   return { itens, totalHoras, custoTotal, despAdm, taxPct, faixas, metas }
 }
