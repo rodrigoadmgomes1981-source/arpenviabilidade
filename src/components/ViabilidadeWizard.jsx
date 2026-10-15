@@ -413,12 +413,17 @@ function StepMargens({ viab, upd, calc }) {
         {METAS.map((m) => (
           <div key={m.key} className={`faixa faixa-${m.key}`}>
             <span>{m.label}</span>
-            <strong>{fmtPct(calc.faixas[m.key])}</strong>
+            <strong>
+              {m.key === 'minima' ? '' : '+'}
+              {fmtPct(calc.faixas[m.key])}
+            </strong>
+            {m.key !== 'minima' && <span className="tiny">sobre a mínima</span>}
           </div>
         ))}
       </div>
       <p className="tiny muted">
-        Margem = lucro ÷ faturamento, após tributos, custo médico e despesas administrativas.
+        A meta mínima usa a margem informada (margem = lucro ÷ faturamento). Mediana e máxima aplicam o próprio % sobre
+        todos os valores da mínima: faturamento, hora a pagar, tributos e taxa de administração.
       </p>
     </Card>
   )
@@ -652,7 +657,9 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                     </button>
                   )}
                 </div>
-                <div className="meta-pct">margem {fmtPct(r.margemPct)}</div>
+                <div className="meta-pct">
+                  {r.acrescimoPct ? `+${fmtPct(r.acrescimoPct)} sobre a mínima` : `margem ${fmtPct(r.margemPct)}`}
+                </div>
                 <dl>
                   <dt>Faturamento</dt>
                   <dd className="strong">{fmtBRL(r.faturamento)}</dd>
@@ -847,7 +854,7 @@ function MargemSimulador({ viab, setViab, calc, base }) {
         />
         {!unica && (
           <span className="tiny muted">
-            Mediana {fmtPct(faixas.mediana)} · Máxima {fmtPct(faixas.maxima)}
+            Mediana +{fmtPct(faixas.mediana)} · Máxima +{fmtPct(faixas.maxima)} sobre a mínima
           </span>
         )}
       </div>

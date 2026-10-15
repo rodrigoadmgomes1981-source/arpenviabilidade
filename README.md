@@ -51,10 +51,12 @@ e desativar usuários.
 ## Cálculo
 
 ```
-Faturamento da meta   = (Custo médico + Despesas adm.) / (1 − %tributos − %margem da meta)
-Hora a pagar da meta  = Hora a pagar informada × (Faturamento da meta / Faturamento da meta mínima)
-                        (a mínima e a meta única pagam o valor informado)
-Lucro                 = Faturamento − Tributos − Custo médico da meta − Despesas adm.
+Meta mínima (ou única):
+  Faturamento   = (Custo médico + Despesas adm.) / (1 − %tributos − %margem mínima)
+  Hora a pagar  = valor informado
+Mediana e máxima (ex.: +6,2% e +7,4%):
+  Faturamento, hora a pagar, tributos e taxa de administração = valores da mínima × (1 + % da meta)
+Taxa de administração = Faturamento − Tributos − Custo médico (inclui despesas adm. + lucro)
 ```
 
 ## Estrutura
