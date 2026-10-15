@@ -726,13 +726,13 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
         </div>
       </Card>
 
-      <Card title="Observações">
+      <Card title="Observações (descrição na proposta)" subtitle="Este texto vai no item 1 da proposta, junto com o custo global de cada meta.">
         <textarea
           id="obs-proposta"
           rows={3}
           value={viab.observacoes}
           onChange={(e) => upd({ observacoes: e.target.value })}
-          placeholder="Condições, premissas, escalas… (aparece na proposta)"
+          placeholder="Descrição do serviço que aparece na proposta, no item 1 – Custos Operacionais (ex.: cobertura 24h no PA com Neurologia e Emergencistas…)"
         />
       </Card>
     </>

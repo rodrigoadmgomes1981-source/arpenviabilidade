@@ -486,3 +486,5 @@ button.client-main.as-link { display: flex; flex-direction: column; gap: 2px; }
 @media (max-width: 860px) { .sim { grid-template-columns: 1fr; } .sim-res { grid-template-columns: 1fr 1fr; } }
 .tbl td.num .num-input { width: 128px; }
 .tbl td.num .num-input input { min-width: 0; }
+.doc-tbl tr.sec-desc td { vertical-align: top; }
+.doc-desc { margin: 6px 0 2px; font-weight: 400; font-size: 0.86rem; color: var(--navy-2); white-space: pre-wrap; line-height: 1.5; }

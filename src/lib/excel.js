@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs'
 import logoUrl from '../assets/arpen-logo.png'
-import { calcular, metasSelecionadas, nomeItem, metasDoTipo, TIPOS_META } from './calc'
+import { calcular, metasSelecionadas, metasDoTipo, TIPOS_META } from './calc'
 import { fmtDataCurta } from './format'
 import { dadosProposta, fmtISO, dataElaboracao } from './proposta'
 
@@ -113,31 +113,31 @@ async function sheetProposta(wb, viab, cliente, calc) {
 
   // 1. Custos Operacionais
   const r1 = r
-  ws.getCell(r, 2).value = '1. Custos Operacionais - Serviços Médicos'
+  const obs = (viab.observacoes || '').trim()
+  ws.getCell(r, 2).value = obs
+    ? {
+        richText: [
+          { text: '1. Custos Operacionais - Serviços Médicos\n', font: { bold: true } },
+          { text: obs, font: { size: 10, color: { argb: 'FF44506A' } } },
+        ],
+      }
+    : '1. Custos Operacionais - Serviços Médicos'
   ws.getCell(r, 2).font = { bold: true }
+  ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' }
+  if (obs) ws.getRow(r).height = Math.min(400, 18 + 14 * Math.ceil(obs.length / 60 + (obs.match(/\n/g) || []).length))
   metas.forEach((m, i) => {
     const c = ws.getCell(r, 3 + i)
     c.value = calc.custoTotal
     c.numFmt = BRL
     c.font = { bold: true }
+    c.alignment = { vertical: 'top' }
   })
   band(ws.getRow(r))
   r++
-  for (const it of calc.itens) {
-    ws.getCell(r, 2).value = `   • ${nomeItem(it)} – ${it.horasN.toLocaleString('pt-BR')} h`
-    ws.getCell(r, 2).font = { color: { argb: 'FF5B6478' }, size: 10 }
-    metas.forEach((m, i) => {
-      const c = ws.getCell(r, 3 + i)
-      c.value = it.custo
-      c.numFmt = BRL
-      c.font = { color: { argb: 'FF5B6478' }, size: 10 }
-    })
-    r++
-  }
   r++
   // 2. Taxas e Impostos
   const r2 = r
-  ws.getCell(r, 2).value = `2. Taxas e Impostos (${calc.taxPct.toLocaleString('pt-BR')}%)`
+  ws.getCell(r, 2).value = '2. Taxas e Impostos'
   ws.getCell(r, 2).font = { bold: true }
   metas.forEach((m, i) => {
     const c = ws.getCell(r, 3 + i)
@@ -161,7 +161,7 @@ async function sheetProposta(wb, viab, cliente, calc) {
   r += 2
   // 3. Taxa adm e lucro
   const r3 = r
-  ws.getCell(r, 2).value = '3. Taxa de administração e lucro'
+  ws.getCell(r, 2).value = '3. Taxa de Administração'
   ws.getCell(r, 2).font = { bold: true }
   metas.forEach((m, i) => {
     const c = ws.getCell(r, 3 + i)
@@ -188,31 +188,6 @@ async function sheetProposta(wb, viab, cliente, calc) {
   borderAll(ws, hr, r, 2, lastCol)
   r += 2
 
-  // Valor hora faturado por especialidade
-  ws.getCell(r, 2).value = 'Valor hora por especialidade'
-  ws.getCell(r, 2).font = { bold: true, color: { argb: NAVY } }
-  r++
-  const h2 = r
-  ws.getCell(r, 2).value = 'Especialidade'
-  metas.forEach((m, i) => (ws.getCell(r, 3 + i).value = m.label))
-  for (let c = 2; c <= lastCol; c++) header(ws.getCell(r, c))
-  r++
-  calc.itens.forEach((it, idx) => {
-    ws.getCell(r, 2).value = `${nomeItem(it)} – ${it.horasN.toLocaleString('pt-BR')} h/mês`
-    metas.forEach((m, i) => {
-      const c = ws.getCell(r, 3 + i)
-      c.value = calc.metas[m.key].linhas[idx].valorHoraFaturar
-      c.numFmt = BRL
-    })
-    r++
-  })
-  borderAll(ws, h2, r - 1, 2, lastCol)
-  r++
-  if (viab.observacoes) {
-    ws.getCell(r, 2).value = `Observações: ${viab.observacoes}`
-    ws.getCell(r, 2).alignment = { wrapText: true }
-    r++
-  }
   ws.getCell(r, 2).value = `Valores mensais. Proposta emitida em ${fmtISO(prop.data)} e válida até ${fmtISO(prop.validade)} (${prop.dias} dias).`
   ws.getCell(r, 2).font = { italic: true, size: 9, color: { argb: 'FF8A93A6' } }
   ws.pageSetup = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 }

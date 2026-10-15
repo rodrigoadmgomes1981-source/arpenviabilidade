@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
-import { calcular, metasSelecionadas, nomeItem } from '../lib/calc'
+import { calcular, metasSelecionadas } from '../lib/calc'
 import { dadosProposta, somaDias, diasEntre, fmtISO, dataElaboracao } from '../lib/proposta'
 import { Confirm } from './ui'
-import { fmtBRL, fmtNum, fmtPct, fmtData } from '../lib/format'
+import { fmtBRL, fmtData } from '../lib/format'
 
 export default function PropostaView({ viab, cliente, db, acoes, notify, onClose }) {
   const calc = calcular(viab)
@@ -219,62 +219,25 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
               </tr>
             </thead>
             <tbody>
-              {linha('1. Custos Operacionais - Serviços Médicos', () => calc.custoTotal, 'sec')}
-              {calc.itens.map((it) => (
-                <tr key={it.id} className="sub">
-                  <td>
-                    {nomeItem(it)} – {fmtNum(it.horasN)} h
+              <tr className="sec sec-desc">
+                <td>
+                  1. Custos Operacionais - Serviços Médicos
+                  {viab.observacoes?.trim() && <p className="doc-desc">{viab.observacoes.trim()}</p>}
+                </td>
+                {metas.map((m) => (
+                  <td key={m.key} className="num">
+                    {fmtBRL(calc.custoTotal)}
                   </td>
-                  {metas.map((m) => (
-                    <td key={m.key} className="num">
-                      {fmtBRL(it.custo)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {linha(`2. Taxas e Impostos (${fmtPct(calc.taxPct)})`, (k) => calc.metas[k].impostos, 'sec')}
+                ))}
+              </tr>
+              {linha('2. Taxas e Impostos', (k) => calc.metas[k].impostos, 'sec')}
               {linha('Custo Total', (k) => calc.custoTotal + calc.metas[k].impostos, 'tot')}
-              {linha('3. Taxa de administração e lucro', (k) => calc.metas[k].taxaAdmLucro, 'sec')}
+              {linha('3. Taxa de Administração', (k) => calc.metas[k].taxaAdmLucro, 'sec')}
             </tbody>
             <tfoot>
               {linha('Valor Total Mensal', (k) => calc.metas[k].faturamento, 'grand')}
             </tfoot>
           </table>
-
-          <h2>Valor hora por especialidade</h2>
-          <table className="doc-tbl light">
-            <thead>
-              <tr>
-                <th>Especialidade</th>
-                <th className="num">Horas/mês</th>
-                {metas.map((m) => (
-                  <th key={m.key} className="num">
-                    {m.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {calc.itens.map((it, i) => (
-                <tr key={it.id}>
-                  <td>{nomeItem(it)}</td>
-                  <td className="num">{fmtNum(it.horasN)}</td>
-                  {metas.map((m) => (
-                    <td key={m.key} className="num">
-                      {fmtBRL(calc.metas[m.key].linhas[i].valorHoraFaturar)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {viab.observacoes && (
-            <section className="doc-obs">
-              <h2>Observações</h2>
-              <p>{viab.observacoes}</p>
-            </section>
-          )}
 
           <footer className="doc-foot">
             Valores mensais, já incluídos tributos. Proposta emitida em {fmtISO(prop.data)} e válida até {fmtISO(prop.validade)} ({prop.dias} dias).
