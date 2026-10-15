@@ -50,6 +50,7 @@ function viabJson(r) {
     tipoMeta: r.tipo_meta,
     dataElaboracao: r.data_elaboracao,
     proposta: r.proposta_data ? { data: r.proposta_data, validade: r.proposta_validade } : null,
+    propostaExtra: r.proposta_extra || null,
     emitidaEm: r.emitida_em,
     emitidaPorNome: r.emitida_por_nome,
     criadoPorNome: r.criado_por_nome,
@@ -359,18 +360,29 @@ rota('PUT', '/api/viabilidades/:id/proposta', async ({ req, body, params }) => {
   const u = await exigirUsuario(req)
   const { data, validade } = body
   if (!ISO.test(data || '') || !ISO.test(validade || '')) throw httpError(400, 'Datas inválidas')
+  const tec = body.tecnologia
+    ? { incluir: Boolean(body.tecnologia.incluir), texto: texto(body.tecnologia.texto, 2000) }
+    : null
   return tx(async (db) => {
     const { rows: old } = await db('SELECT * FROM viabilidades WHERE id = $1 FOR UPDATE', [params.id])
     const o = old[0]
     if (!o) throw httpError(404, 'Viabilidade não encontrada')
     if (data < o.data_elaboracao) throw httpError(400, 'A data da proposta não pode ser anterior à data de elaboração')
     if (validade < data) throw httpError(400, 'A validade não pode ser anterior à data da proposta')
-    if (o.proposta_data === data && o.proposta_validade === validade) return viabJson(o)
+    const extraAntes = o.proposta_extra || {}
+    const extra = tec ? { ...extraAntes, tecnologia: tec } : extraAntes
+    const tecAntes = extraAntes.tecnologia
+    const tecMudou = tec && (!tecAntes || tecAntes.incluir !== tec.incluir || tecAntes.texto !== tec.texto)
+    if (o.proposta_data === data && o.proposta_validade === validade && !tecMudou) return viabJson(o)
     const { rows } = await db(
-      'UPDATE viabilidades SET proposta_data=$1, proposta_validade=$2 WHERE id=$3 RETURNING *',
-      [data, validade, params.id],
+      'UPDATE viabilidades SET proposta_data=$1, proposta_validade=$2, proposta_extra=$3 WHERE id=$4 RETURNING *',
+      [data, validade, JSON.stringify(extra), params.id],
     )
     const mudancas = []
+    if (tecMudou && (tecAntes?.incluir ?? null) !== tec.incluir)
+      mudancas.push({ campo: 'Item Tecnologia na proposta', de: tecAntes ? (tecAntes.incluir ? 'Incluído' : 'Não incluído') : '', para: tec.incluir ? 'Incluído' : 'Não incluído' })
+    if (tecMudou && tecAntes && tecAntes.texto !== tec.texto)
+      mudancas.push({ campo: 'Texto do item Tecnologia', de: tecAntes.texto, para: tec.texto })
     if (o.proposta_data !== data) mudancas.push({ campo: 'Data da proposta', de: o.proposta_data, para: data, tipo: 'data' })
     if (o.proposta_validade !== validade) mudancas.push({ campo: 'Validade', de: o.proposta_validade, para: validade, tipo: 'data' })
     await registrarLog(db, { entidade: 'viabilidade', entidadeId: params.id, acao: 'proposta_alterada', detalhes: { mudancas }, usuario: u })
@@ -480,6 +492,7 @@ rota('PUT', '/api/config', async ({ req, body }) => {
     variacao: texto(body.variacao ?? atual.variacao, 10),
     modo: body.modo === 'mult' ? 'mult' : 'pp',
     validadeDias: Math.max(1, Math.min(365, parseInt(body.validadeDias ?? atual.validadeDias, 10) || 30)),
+    textoTecnologia: texto(body.textoTecnologia ?? atual.textoTecnologia, 2000),
   }
   await q(
     `INSERT INTO configuracoes (chave, valor) VALUES ('geral', $1)

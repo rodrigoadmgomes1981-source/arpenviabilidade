@@ -1,20 +1,37 @@
 import { useEffect, useState } from 'react'
 import logo from '../assets/arpen-logo.png'
-import { calcular, metasSelecionadas } from '../lib/calc'
-import { dadosProposta, somaDias, diasEntre, fmtISO, dataElaboracao } from '../lib/proposta'
+import { calcular, metasSelecionadas, TITULO_TECNOLOGIA, TEXTO_TECNOLOGIA } from '../lib/calc'
+import { dadosProposta, somaDias, diasEntre, fmtISO, dataElaboracao, dadosTecnologia, linhasTexto } from '../lib/proposta'
 import { Confirm } from './ui'
 import { fmtBRL, fmtData } from '../lib/format'
 
 export default function PropostaView({ viab, cliente, db, acoes, notify, onClose }) {
   const calc = calcular(viab)
+  const textoPadraoTec = db?.config?.textoTecnologia || TEXTO_TECNOLOGIA
   const elab = dataElaboracao(viab)
   const [draft, setDraft] = useState(() => {
     const p = dadosProposta(viab, db?.config?.validadeDias)
-    return { data: p.data, validade: p.validade }
+    const t = dadosTecnologia(viab, textoPadraoTec)
+    return { data: p.data, validade: p.validade, tecIncluir: t.incluir, tecTexto: t.texto }
   })
+  const tecSalvo = viab.propostaExtra?.tecnologia
   const prop = { ...draft, dias: diasEntre(draft.data, draft.validade) }
-  const alterado = !viab.proposta || draft.data !== viab.proposta.data || draft.validade !== viab.proposta.validade
-  const setData = (data) => data && data >= elab && setDraft({ data, validade: somaDias(data, prop.dias) })
+  const alterado =
+    !viab.proposta ||
+    draft.data !== viab.proposta.data ||
+    draft.validade !== viab.proposta.validade ||
+    !tecSalvo ||
+    tecSalvo.incluir !== draft.tecIncluir ||
+    tecSalvo.texto !== draft.tecTexto
+  const payload = () => ({
+    data: draft.data,
+    validade: draft.validade,
+    tecnologia: { incluir: draft.tecIncluir, texto: draft.tecTexto },
+  })
+  const viabDoc = { ...viab, proposta: { data: draft.data, validade: draft.validade }, propostaExtra: { ...(viab.propostaExtra || {}), tecnologia: { incluir: draft.tecIncluir, texto: draft.tecTexto } } }
+  const comTec = draft.tecIncluir
+  const n = (i) => (comTec ? i + 1 : i)
+  const setData = (data) => data && data >= elab && setDraft((d) => ({ ...d, data, validade: somaDias(data, prop.dias) }))
   const setDias = (txt) => {
     const n = Math.max(0, parseInt(String(txt).replace(/\D/g, ''), 10) || 0)
     setDraft((d) => ({ ...d, validade: somaDias(d.data, n) }))
@@ -28,8 +45,8 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
   const salvarDatas = async () => {
     setOcupado(true)
     try {
-      await acoes.salvarProposta(viab.id, draft)
-      notify('Datas da proposta salvas')
+      await acoes.salvarProposta(viab.id, payload())
+      notify('Dados da proposta salvos')
       return true
     } catch (e) {
       notify(e.message, 'erro')
@@ -93,7 +110,7 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
             onClick={async () => {
               setGerando(true)
               try {
-                await (await import('../lib/excel')).exportarPropostaExcel({ ...viab, proposta: draft }, cliente)
+                await (await import('../lib/excel')).exportarPropostaExcel(viabDoc, cliente)
               } finally {
                 setGerando(false)
               }
@@ -147,9 +164,42 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
         </div>
         {alterado && (
           <button className="btn success sm" disabled={ocupado} onClick={salvarDatas}>
-            Salvar datas
+            Salvar alterações
           </button>
         )}
+        <div className="tec-box">
+          <label className="switch">
+            <input
+              id="tec-incluir"
+              type="checkbox"
+              checked={draft.tecIncluir}
+              onChange={(e) => setDraft((d) => ({ ...d, tecIncluir: e.target.checked }))}
+            />
+            <span className="switch-ui" aria-hidden="true" />
+            <span>
+              Incluir item <strong>{TITULO_TECNOLOGIA}</strong>
+            </span>
+          </label>
+          {draft.tecIncluir && (
+            <div className="tec-edit">
+              <textarea
+                id="tec-texto"
+                rows={4}
+                value={draft.tecTexto}
+                onChange={(e) => setDraft((d) => ({ ...d, tecTexto: e.target.value }))}
+                aria-label="Texto do item Tecnologia"
+              />
+              <div className="tec-hint">
+                <span>Linhas que começam com * viram tópicos.</span>
+                {draft.tecTexto !== textoPadraoTec && (
+                  <button type="button" className="link light" onClick={() => setDraft((d) => ({ ...d, tecTexto: textoPadraoTec }))}>
+                    Restaurar texto padrão
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       {confirmarEmissao && (
         <Confirm
@@ -219,20 +269,45 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
               </tr>
             </thead>
             <tbody>
+              {comTec && (
+                <tr className="sec sec-desc sec-tec">
+                  <td>
+                    1. {TITULO_TECNOLOGIA}
+                    <ul className="doc-topicos">
+                      {linhasTexto(draft.tecTexto).map((l, i) =>
+                        l.topico ? (
+                          <li key={i}>{l.t}</li>
+                        ) : (
+                          <li key={i} className="plain">
+                            {l.t}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </td>
+                  {metas.map((m) => (
+                    <td key={m.key} className="num global" rowSpan={2}>
+                      {fmtBRL(calc.custoTotal)}
+                      <span className="global-nota">itens 1 e 2</span>
+                    </td>
+                  ))}
+                </tr>
+              )}
               <tr className="sec sec-desc">
                 <td>
-                  1. Custos Operacionais - Serviços Médicos
+                  {n(1)}. Custos Operacionais - Serviços Médicos
                   {viab.observacoes?.trim() && <p className="doc-desc">{viab.observacoes.trim()}</p>}
                 </td>
-                {metas.map((m) => (
-                  <td key={m.key} className="num">
-                    {fmtBRL(calc.custoTotal)}
-                  </td>
-                ))}
+                {!comTec &&
+                  metas.map((m) => (
+                    <td key={m.key} className="num">
+                      {fmtBRL(calc.custoTotal)}
+                    </td>
+                  ))}
               </tr>
-              {linha('2. Taxas e Impostos', (k) => calc.metas[k].impostos, 'sec')}
+              {linha(`${n(2)}. Taxas e Impostos`, (k) => calc.metas[k].impostos, 'sec')}
               {linha('Custo Total', (k) => calc.custoTotal + calc.metas[k].impostos, 'tot')}
-              {linha('3. Taxa de Administração', (k) => calc.metas[k].taxaAdmLucro, 'sec')}
+              {linha(`${n(3)}. Taxa de Administração`, (k) => calc.metas[k].taxaAdmLucro, 'sec')}
             </tbody>
             <tfoot>
               {linha('Valor Total Mensal', (k) => calc.metas[k].faturamento, 'grand')}

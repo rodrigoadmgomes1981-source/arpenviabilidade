@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Card, Field, NumInput } from './ui'
-import { IMPOSTOS, CONFIG_PADRAO, totalImpostosPct } from '../lib/calc'
+import { IMPOSTOS, CONFIG_PADRAO, TITULO_TECNOLOGIA, TEXTO_TECNOLOGIA, totalImpostosPct } from '../lib/calc'
 import { fmtPct } from '../lib/format'
 
 export default function ConfigPage({ db, acoes, notify }) {
@@ -71,6 +71,23 @@ export default function ConfigPage({ db, acoes, notify }) {
             />
           </Field>
         </div>
+        <h3 className="sec-title">Proposta: item “{TITULO_TECNOLOGIA}”</h3>
+        <Field
+          label="Texto padrão"
+          hint="Aparece como item 1 da proposta quando o botão “Incluir item” estiver ligado. Pode ser ajustado em cada proposta. Linhas que começam com * viram tópicos."
+        >
+          <textarea
+            id="cfg-tecnologia"
+            rows={5}
+            value={cfg.textoTecnologia}
+            onChange={(e) => setCfg((c) => ({ ...c, textoTecnologia: e.target.value }))}
+          />
+        </Field>
+        {cfg.textoTecnologia !== TEXTO_TECNOLOGIA && (
+          <button type="button" className="link" onClick={() => setCfg((c) => ({ ...c, textoTecnologia: TEXTO_TECNOLOGIA }))}>
+            Restaurar texto original
+          </button>
+        )}
       </Card>
     </div>
   )

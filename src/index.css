@@ -488,3 +488,23 @@ button.client-main.as-link { display: flex; flex-direction: column; gap: 2px; }
 .tbl td.num .num-input input { min-width: 0; }
 .doc-tbl tr.sec-desc td { vertical-align: top; }
 .doc-desc { margin: 6px 0 2px; font-weight: 400; font-size: 0.86rem; color: var(--navy-2); white-space: pre-wrap; line-height: 1.5; }
+
+/* Item Tecnologia na proposta */
+.tec-box { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.15); }
+.switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; color: #fff; font-size: 0.9rem; position: relative; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch-ui { width: 38px; height: 22px; border-radius: 99px; background: rgba(255,255,255,0.25); position: relative; transition: background 0.15s; flex-shrink: 0; }
+.switch-ui::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.switch input:checked + .switch-ui { background: var(--green); }
+.switch input:checked + .switch-ui::after { transform: translateX(16px); }
+.switch input:focus-visible + .switch-ui { outline: 2px solid #fff; outline-offset: 2px; }
+.tec-edit { display: flex; flex-direction: column; gap: 4px; max-width: 720px; }
+.tec-edit textarea { color: var(--navy); font-size: 0.88rem; }
+.tec-hint { display: flex; gap: 12px; align-items: center; font-size: 0.75rem; color: #c9d2e3; flex-wrap: wrap; }
+.link.light { color: var(--green); }
+.doc-topicos { margin: 6px 0 2px; padding-left: 18px; font-weight: 400; font-size: 0.86rem; color: var(--navy-2); line-height: 1.5; }
+.doc-topicos li.plain { list-style: none; margin-left: -18px; }
+.doc-tbl td.global { vertical-align: middle !important; background: #dff3ec; border-left: 1px solid #c4e6da; }
+.global-nota { display: block; font-size: 0.68rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+@media print { .global-nota { color: #6b7489; } }
+.proposta-dados label.switch { flex-direction: row; align-items: center; color: #fff; font-size: 0.9rem; gap: 10px; }

@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs'
 import logoUrl from '../assets/arpen-logo.png'
-import { calcular, metasSelecionadas, metasDoTipo, TIPOS_META } from './calc'
+import { calcular, metasSelecionadas, metasDoTipo, TIPOS_META, TITULO_TECNOLOGIA, TEXTO_TECNOLOGIA } from './calc'
 import { fmtDataCurta } from './format'
-import { dadosProposta, fmtISO, dataElaboracao } from './proposta'
+import { dadosProposta, fmtISO, dataElaboracao, dadosTecnologia, linhasTexto } from './proposta'
 
 const NAVY = 'FF1A2640'
 const GREEN = 'FF64CEAF'
@@ -111,33 +111,55 @@ async function sheetProposta(wb, viab, cliente, calc) {
   ws.getRow(hr).height = 24
   r++
 
-  // 1. Custos Operacionais
+  // (opcional) 1. Despesas Operacionais – Tecnologia: só texto; o valor global cobre os itens 1 e 2
+  const tec = dadosTecnologia(viab, TEXTO_TECNOLOGIA)
+  const comTec = tec.incluir
+  const n = (i) => (comTec ? i + 1 : i)
+  let rTec = null
+  if (comTec) {
+    rTec = r
+    const linhas = linhasTexto(tec.texto).map((l) => (l.topico ? `• ${l.t}` : l.t))
+    ws.getCell(r, 2).value = {
+      richText: [
+        { text: `1. ${TITULO_TECNOLOGIA}${linhas.length ? '\n' : ''}`, font: { bold: true } },
+        ...(linhas.length ? [{ text: linhas.join('\n'), font: { size: 10, color: { argb: 'FF44506A' } } }] : []),
+      ],
+    }
+    ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' }
+    ws.getRow(r).height = 18 + 14 * linhas.length
+    band(ws.getRow(r))
+    r++
+  }
+  // Custos Operacionais
   const r1 = r
   const obs = (viab.observacoes || '').trim()
   ws.getCell(r, 2).value = obs
     ? {
         richText: [
-          { text: '1. Custos Operacionais - Serviços Médicos\n', font: { bold: true } },
+          { text: `${n(1)}. Custos Operacionais - Serviços Médicos\n`, font: { bold: true } },
           { text: obs, font: { size: 10, color: { argb: 'FF44506A' } } },
         ],
       }
-    : '1. Custos Operacionais - Serviços Médicos'
+    : `${n(1)}. Custos Operacionais - Serviços Médicos`
   ws.getCell(r, 2).font = { bold: true }
   ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' }
   if (obs) ws.getRow(r).height = Math.min(400, 18 + 14 * Math.ceil(obs.length / 60 + (obs.match(/\n/g) || []).length))
   metas.forEach((m, i) => {
-    const c = ws.getCell(r, 3 + i)
+    if (comTec) ws.mergeCells(rTec, 3 + i, r, 3 + i)
+    const c = ws.getCell(comTec ? rTec : r, 3 + i)
     c.value = calc.custoTotal
     c.numFmt = BRL
     c.font = { bold: true }
-    c.alignment = { vertical: 'top' }
+    c.alignment = { vertical: comTec ? 'middle' : 'top', horizontal: 'right' }
+    if (comTec) c.note = 'Valor global dos itens 1 e 2'
   })
   band(ws.getRow(r))
+  const rCusto = comTec ? rTec : r1
   r++
   r++
   // 2. Taxas e Impostos
   const r2 = r
-  ws.getCell(r, 2).value = '2. Taxas e Impostos'
+  ws.getCell(r, 2).value = `${n(2)}. Taxas e Impostos`
   ws.getCell(r, 2).font = { bold: true }
   metas.forEach((m, i) => {
     const c = ws.getCell(r, 3 + i)
@@ -154,14 +176,14 @@ async function sheetProposta(wb, viab, cliente, calc) {
   metas.forEach((m, i) => {
     const col = ws.getColumn(3 + i).letter
     const c = ws.getCell(r, 3 + i)
-    c.value = { formula: `${col}${r1}+${col}${r2}`, result: calc.custoTotal + calc.metas[m.key].impostos }
+    c.value = { formula: `${col}${rCusto}+${col}${r2}`, result: calc.custoTotal + calc.metas[m.key].impostos }
     c.numFmt = BRL
     c.font = { bold: true }
   })
   r += 2
   // 3. Taxa adm e lucro
   const r3 = r
-  ws.getCell(r, 2).value = '3. Taxa de Administração'
+  ws.getCell(r, 2).value = `${n(3)}. Taxa de Administração`
   ws.getCell(r, 2).font = { bold: true }
   metas.forEach((m, i) => {
     const c = ws.getCell(r, 3 + i)

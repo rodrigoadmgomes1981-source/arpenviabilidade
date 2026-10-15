@@ -23,11 +23,19 @@ export const IMPOSTOS = [
   { key: 'ir', label: 'IR' },
 ]
 
+/** Item opcional da proposta: Despesas Operacionais – Tecnologia (só texto, sem valor) */
+export const TITULO_TECNOLOGIA = 'Despesas Operacionais – Tecnologia'
+export const TEXTO_TECNOLOGIA = `Plataformas:
+*Gestão de Performance Médica em Tempo Real
+*Educadoc + Academy:
+27 Especialistas 24/7 + Educação Médica Continuada`
+
 export const CONFIG_PADRAO = {
   impostos: { iss: '4', pis: '0,65', cofins: '3', csll: '1,08', ir: '2' },
   variacao: '1,2',
   modo: 'pp',
   validadeDias: 30,
+  textoTecnologia: TEXTO_TECNOLOGIA,
 }
 
 export function novaViabilidade(clienteId = '', config = CONFIG_PADRAO) {

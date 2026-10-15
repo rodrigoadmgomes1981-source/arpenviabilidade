@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS viabilidades (
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_viab_cliente ON viabilidades(cliente_id);
+ALTER TABLE viabilidades ADD COLUMN IF NOT EXISTS proposta_extra jsonb;
 
 CREATE TABLE IF NOT EXISTS logs (
   id bigserial PRIMARY KEY,

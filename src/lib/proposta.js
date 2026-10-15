@@ -50,3 +50,19 @@ export function situacaoProposta(viab) {
   if (!viab?.proposta?.validade) return null
   return diasEntre(hojeISO(), viab.proposta.validade) < 0 ? 'vencida' : 'vigente'
 }
+
+/** Item "Despesas Operacionais – Tecnologia" da proposta (só texto). Padrão: incluído, com o texto das Configurações. */
+export function dadosTecnologia(viab, textoPadrao = '') {
+  const t = viab?.propostaExtra?.tecnologia
+  if (t) return { incluir: Boolean(t.incluir), texto: t.texto ?? '' }
+  return { incluir: true, texto: textoPadrao }
+}
+
+/** Divide o texto em linhas; linhas iniciadas por * viram tópicos */
+export function linhasTexto(texto) {
+  return String(texto || '')
+    .split('\n')
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim())
+    .map((l) => (/^\s*[*•-]\s*/.test(l) ? { topico: true, t: l.replace(/^\s*[*•-]\s*/, '') } : { topico: false, t: l.trim() }))
+}
