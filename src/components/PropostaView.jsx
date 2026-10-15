@@ -288,7 +288,6 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
                   {metas.map((m) => (
                     <td key={m.key} className="num global" rowSpan={2}>
                       {fmtBRL(calc.custoTotal)}
-                      <span className="global-nota">itens 1 e 2</span>
                     </td>
                   ))}
                 </tr>

@@ -151,7 +151,6 @@ async function sheetProposta(wb, viab, cliente, calc) {
     c.numFmt = BRL
     c.font = { bold: true }
     c.alignment = { vertical: comTec ? 'middle' : 'top', horizontal: 'right' }
-    if (comTec) c.note = 'Valor global dos itens 1 e 2'
   })
   band(ws.getRow(r))
   const rCusto = comTec ? rTec : r1
