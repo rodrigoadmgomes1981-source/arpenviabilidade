@@ -43,7 +43,7 @@ function textoResumo(r) {
     `Proposta nº ${r.numero} (v${r.versao}) – ${r.tipo}`,
     `Elaboração: ${r.elaboracao} | Data/validade da proposta: ${r.proposta} | Emitida: ${r.emitida}`,
     `Tributos: ${r.tributos} | Despesas adm.: ${r.despAdm} | Total de horas/mês: ${fmtNum(r.horas)} | Custo médico/mês: ${fmtBRL(r.custo)}`,
-    ...r.metas.map((m) => `  ${m.meta} (margem ${m.margem}): custo médico ${fmtBRL(m.custo)} | faturamento ${fmtBRL(m.faturamento)} | lucro ${fmtBRL(m.lucro)}`),
+    ...r.metas.map((m) => `  ${m.meta} (margem ${m.margem}): custo médico ${fmtBRL(m.custo)} | faturamento ${fmtBRL(m.faturamento)} | taxa de adm. ${fmtBRL(m.lucro)}`),
     '  Especialidades (horas/mês | hora a pagar | hora a faturar na meta principal):',
     ...r.itens.map((i) => `   - ${i.especialidade}: ${fmtNum(i.horas)} h | ${fmtBRL(i.horaPagar)} | ${fmtBRL(i.horaFaturar)}`),
   ]
@@ -72,7 +72,7 @@ function insightsPorRegras(resumos) {
   out.push('', '## Pontos de atenção')
   for (const r of resumos) {
     const baixa = r.metas.find((m) => m.lucro <= 0)
-    if (baixa) out.push(`- Proposta nº ${r.numero}: ${baixa.meta} sem lucro. Revise margem ou valores.`)
+    if (baixa) out.push(`- Proposta nº ${r.numero}: ${baixa.meta} sem taxa de administração. Revise margem ou valores.`)
     if (r.proposta === 'não definida') out.push(`- Proposta nº ${r.numero} ainda sem data e validade definidas.`)
   }
   if (out[out.length - 1] === '## Pontos de atenção') out.push('- Nenhum ponto crítico encontrado pelas regras automáticas.')
@@ -95,7 +95,7 @@ export async function gerarInsights({ cliente, viabilidades, observacoes }) {
   ].join('\n')
 
   const prompt = `Você é analista comercial da Arpen, empresa que faz gestão de serviços médicos (pronto atendimento, plantões e especialidades) para hospitais e operadoras como a Unimed.
-Compare as propostas abaixo, todas do mesmo cliente. Faturamento = (custo médico + despesas administrativas) ÷ (1 − tributos − margem). As faixas são encadeadas: a mediana sobe o % dela sobre a mínima e a máxima sobre a mediana; o custo médico cresce esse % e a taxa de administração cresce o mesmo valor em R$.
+Compare as propostas abaixo, todas do mesmo cliente. Valor total mensal = (custo médico + despesas administrativas fixas) ÷ (1 − tributos − margem da meta). A taxa de administração = valor total − custo médico − despesas adm. − tributos, e seu % é a margem da meta. Nas faixas encadeadas o custo médico da mediana sobe o % dela sobre a mínima e o da máxima sobre a mediana.
 
 ${contexto}
 

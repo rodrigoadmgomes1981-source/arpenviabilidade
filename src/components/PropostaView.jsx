@@ -30,7 +30,9 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
   })
   const viabDoc = { ...viab, proposta: { data: draft.data, validade: draft.validade }, propostaExtra: { ...(viab.propostaExtra || {}), tecnologia: { incluir: draft.tecIncluir, texto: draft.tecTexto } } }
   const comTec = draft.tecIncluir
-  const n = (i) => (comTec ? i + 1 : i)
+  const comDesp = calc.despAdm > 0
+  // Numeração: [Tecnologia] · Custos Operacionais · [Despesas Administrativas] · Taxas e Impostos · Taxa de Adm.
+  const n = (i) => (comTec ? 1 : 0) + (comDesp && i >= 2 ? 1 : 0) + i
   const setData = (data) => data && data >= elab && setDraft((d) => ({ ...d, data, validade: somaDias(data, prop.dias) }))
   const setDias = (txt) => {
     const n = Math.max(0, parseInt(String(txt).replace(/\D/g, ''), 10) || 0)
@@ -304,8 +306,9 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
                     </td>
                   ))}
               </tr>
+              {comDesp && linha(`${n(1) + 1}. Despesas Administrativas`, () => calc.despAdm, 'sec')}
               {linha(`${n(2)}. Taxas e Impostos`, (k) => calc.metas[k].impostos, 'sec')}
-              {linha('Custo Total', (k) => calc.metas[k].custo + calc.metas[k].impostos, 'tot')}
+              {linha('Custo Total', (k) => calc.metas[k].custo + calc.despAdm + calc.metas[k].impostos, 'tot')}
               {linha(`${n(3)}. Taxa de Administração`, (k) => calc.metas[k].taxaAdmLucro, 'sec')}
             </tbody>
             <tfoot>

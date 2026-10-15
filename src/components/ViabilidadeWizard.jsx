@@ -662,23 +662,29 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                 </div>
                 <div className="meta-pct">
                   {r.acrescimoPct
-                    ? `+${fmtPct(r.acrescimoPct)} sobre a ${m.key === 'maxima' ? 'mediana' : 'mínima'} · margem real ${fmtPct(r.margemReal)}`
+                    ? `margem ${fmtPct(r.margemPct)} · custo +${fmtPct(r.acrescimoPct)} sobre a ${m.key === 'maxima' ? 'mediana' : 'mínima'}`
                     : `margem ${fmtPct(r.margemPct)}`}
                 </div>
                 <dl>
-                  <dt>Faturamento</dt>
+                  <dt>Valor total mensal</dt>
                   <dd className="strong">{fmtBRL(r.faturamento)}</dd>
                   <dt>Custo médico</dt>
                   <dd>
                     {fmtBRL(r.custo)}
                     {r.acrescimoPct > 0 && <span className="tiny pos"> (+{fmtPct(r.acrescimoPct)})</span>}
                   </dd>
+                  {calc.despAdm > 0 && (
+                    <>
+                      <dt>Desp. adm. (fixa)</dt>
+                      <dd>{fmtBRL(calc.despAdm)}</dd>
+                    </>
+                  )}
                   <dt>Tributos</dt>
                   <dd>{fmtBRL(r.impostos)}</dd>
-                  <dt>Desp. adm.</dt>
-                  <dd>{fmtBRL(calc.despAdm)}</dd>
-                  <dt>Lucro</dt>
-                  <dd className="pos">{fmtBRL(r.lucro)}</dd>
+                  <dt>Taxa de adm.</dt>
+                  <dd className="strong pos">
+                    {fmtBRL(r.taxaAdmLucro)} <span className="tiny muted">({fmtPct(r.taxaAdmPct)})</span>
+                  </dd>
                 </dl>
               </div>
             )
@@ -875,8 +881,8 @@ function MargemSimulador({ viab, setViab, calc, base }) {
           )}
         </div>
         <div>
-          <span>Lucro</span>
-          <strong>{principal.valido ? fmtBRL(principal.lucro) : '—'}</strong>
+          <span>Taxa de adm. ({fmtPct(principal.taxaAdmPct)})</span>
+          <strong>{principal.valido ? fmtBRL(principal.taxaAdmLucro) : '—'}</strong>
         </div>
         <div>
           <span>Custo médico</span>
@@ -898,3 +904,4 @@ function calcularFat(calc, _faixas, margemPct) {
   const div = 1 - calc.taxPct / 100 - margemPct / 100
   return div > 0 && calc.custoTotal > 0 ? (calc.custoTotal + calc.despAdm) / div : 0
 }
+

@@ -51,13 +51,13 @@ e desativar usuários.
 ## Cálculo
 
 ```
-Meta mínima (ou única), m = margem informada:
-  Faturamento = (Custo médico + Despesas adm.) / (1 − %tributos − m)
-  Taxa de administração = Faturamento − Tributos − Custo médico
-Faixas encadeadas (mediana sobre a mínima, máxima sobre a mediana), p = % da faixa:
-  Custo médico (hora a pagar) = custo da faixa anterior × (1 + p)
-  Taxa de administração       = taxa da faixa anterior + (aumento do custo médico em R$)
-  Faturamento                 = (Custo médico + Taxa de administração) / (1 − %tributos)
+Cada meta, m = margem da meta (mínima = informada; mediana e máxima = faixas do item 4):
+  Custo médico: mínima/única = valor informado; mediana = mínima × (1 + % da faixa);
+                máxima = mediana × (1 + % da faixa)
+  Despesas administrativas = valor fixo, igual em todas as metas (item à parte na proposta)
+  Valor total mensal = (Custo médico + Despesas adm.) / (1 − %tributos − m)
+  Taxa de administração = Valor total − Custo médico − Despesas adm. − Tributos
+  % Taxa de administração = Taxa ÷ Valor total  (= m)
 ```
 
 ## Estrutura

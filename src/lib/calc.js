@@ -79,9 +79,8 @@ export function totalImpostosPct(impostos) {
  * Cálculo de viabilidade.
  * Faturamento = (Custo + Despesas adm.) / (1 − impostos − margem)
  * O valor da hora a faturar de cada especialidade = valor hora a pagar × (Faturamento / Custo).
- * Faixas encadeadas (mediana sobre a mínima, máxima sobre a mediana): custo médico × (1 + % da faixa)
- * e taxa de administração + o mesmo valor em R$ que o custo subiu; Faturamento = (Custo + Taxa adm.) / (1 − tributos).
- * Lucro = Faturamento − Impostos − Custo da meta − Desp. Adm.
+ * Faixas encadeadas (mediana sobre a mínima, máxima sobre a mediana): custo médico × (1 + % da faixa).
+ * Taxa de administração = Faturamento − Custo − Desp. Adm. − Impostos = margem da meta × Faturamento.
  */
 export function calcular(viab) {
   const itens = (viab.itens || []).map((it) => {
@@ -95,24 +94,22 @@ export function calcular(viab) {
   const taxPct = totalImpostosPct(viab.impostos)
   const faixas = faixasMargem(viab.margem || {})
 
-  // 1) Faturamento de cada meta sobre o custo informado (valor hora a pagar base)
-  const base = {}
-  for (const meta of [...METAS, META_UNICA]) {
-    const margemPct = faixas[meta.key]
-    const divisor = 1 - taxPct / 100 - margemPct / 100
-    const valido = divisor > 0 && custoTotal > 0
-    const faturamento = valido ? (custoTotal + despAdm) / divisor : 0
-    base[meta.key] = { margemPct, divisor, valido, faturamento }
-  }
-
-  // 2) A meta mínima (ou única) é a base: paga o valor informado e cobra a margem informada.
-  //    Faixas encadeadas: a mediana sobe sobre a mínima e a máxima sobe sobre a mediana.
-  //    Em cada faixa: custo médico (hora a pagar) × (1 + % da faixa) e a taxa de administração
-  //    sobe o mesmo valor em R$ que o custo médico subiu. Tributos incidem sobre o novo faturamento.
+  // Cada meta:
+  //  - Custo médico: a mínima (ou única) paga o valor informado; faixas encadeadas — a mediana
+  //    paga +% da faixa sobre a mínima e a máxima +% da faixa sobre a mediana.
+  //  - Despesas administrativas: valor fixo (igual em todas as metas), item à parte na proposta.
+  //  - Valor total mensal = (Custo médico + Desp. adm.) ÷ (1 − tributos − margem da meta)
+  //  - Taxa de administração = Valor total − Custos operacionais − Desp. adm. − Taxas e impostos
+  //    → % da taxa = Taxa ÷ Valor total = margem informada da meta.
   const metas = {}
   const tribFrac = taxPct / 100
-  const montar = (meta, { fatorPagamento, custo, taxaAdmLucro, valido, erro }) => {
-    const faturamento = valido ? (custo + taxaAdmLucro) / (1 - tribFrac) : 0
+  const montar = (meta, fatorPagamento) => {
+    const margemPct = faixas[meta.key]
+    const divisor = 1 - tribFrac - margemPct / 100
+    const valido = divisor > 0 && custoTotal > 0
+    const erro = divisor <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null
+    const custo = custoTotal * fatorPagamento
+    const faturamento = valido ? (custo + despAdm) / divisor : 0
     const fator = valido && custoTotal ? faturamento / custoTotal : 0
     const impostosDet = IMPOSTOS.map((i) => ({
       ...i,
@@ -120,10 +117,10 @@ export function calcular(viab) {
       valor: (faturamento * parseNum(viab.impostos?.[i.key])) / 100,
     }))
     const impostos = impostosDet.reduce((s, i) => s + i.valor, 0)
-    const lucro = taxaAdmLucro - despAdm
+    const taxaAdmLucro = valido ? faturamento - custo - despAdm - impostos : 0
     return {
       ...meta,
-      margemPct: faixas[meta.key],
+      margemPct,
       acrescimoPct: meta.key === 'minima' || meta.key === 'unica' ? 0 : faixas[meta.key],
       valido,
       erro,
@@ -131,11 +128,14 @@ export function calcular(viab) {
       fator,
       fatorPagamento,
       custo,
+      despAdm,
       impostos,
       impostosDet,
-      lucro,
       taxaAdmLucro,
-      margemReal: faturamento ? (lucro / faturamento) * 100 : 0,
+      // % da taxa = Valor da taxa ÷ Valor total mensal (= margem da meta)
+      taxaAdmPct: faturamento ? (taxaAdmLucro / faturamento) * 100 : 0,
+      lucro: taxaAdmLucro,
+      margemReal: faturamento ? (taxaAdmLucro / faturamento) * 100 : 0,
       linhas: itens.map((it) => ({
         id: it.id,
         valorHoraPagar: it.valorHoraN * fatorPagamento,
@@ -145,30 +145,12 @@ export function calcular(viab) {
       })),
     }
   }
-  const erroDe = (b) => (b.divisor <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null)
-  const baseMeta = (k) => {
-    const b = base[k]
-    const taxa = b.valido ? b.faturamento * (1 - tribFrac) - custoTotal : 0
-    return { fatorPagamento: 1, custo: custoTotal, taxaAdmLucro: taxa, valido: b.valido, erro: erroDe(b) }
-  }
-  const sobe = (ant, pct) => {
-    const fatorPagamento = ant.fatorPagamento * (1 + pct / 100)
-    const custo = custoTotal * fatorPagamento
-    return {
-      fatorPagamento,
-      custo,
-      taxaAdmLucro: ant.taxaAdmLucro + (custo - ant.custo),
-      valido: ant.valido,
-      erro: ant.erro,
-    }
-  }
-  const pMin = baseMeta('minima')
-  const pMed = sobe(pMin, faixas.mediana)
-  const pMax = sobe(pMed, faixas.maxima)
-  metas.minima = montar(METAS[0], pMin)
-  metas.mediana = montar(METAS[1], pMed)
-  metas.maxima = montar(METAS[2], pMax)
-  metas.unica = montar(META_UNICA, baseMeta('unica'))
+  const fMed = 1 + faixas.mediana / 100
+  const fMax = fMed * (1 + faixas.maxima / 100)
+  metas.minima = montar(METAS[0], 1)
+  metas.mediana = montar(METAS[1], fMed)
+  metas.maxima = montar(METAS[2], fMax)
+  metas.unica = montar(META_UNICA, 1)
 
   return { itens, totalHoras, custoTotal, despAdm, taxPct, faixas, metas }
 }

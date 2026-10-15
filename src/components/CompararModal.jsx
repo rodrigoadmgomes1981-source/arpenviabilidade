@@ -27,7 +27,7 @@ export default function CompararModal({ cliente, viabs, acoes, onClose }) {
   const metasLinhas = [
     ['Margem (meta principal)', ({ c, principal }) => fmtPct(c.metas[principal].margemPct)],
     ['Faturamento (meta principal)', ({ c, principal }) => fmtBRL(c.metas[principal].faturamento), ({ c, principal }) => c.metas[principal].faturamento],
-    ['Lucro (meta principal)', ({ c, principal }) => fmtBRL(c.metas[principal].lucro), ({ c, principal }) => c.metas[principal].lucro],
+    ['Taxa de adm. (meta principal)', ({ c, principal }) => fmtBRL(c.metas[principal].lucro), ({ c, principal }) => c.metas[principal].lucro],
     [
       'Outras metas',
       ({ v, c }) =>

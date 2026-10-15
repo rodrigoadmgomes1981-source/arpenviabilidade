@@ -114,7 +114,8 @@ async function sheetProposta(wb, viab, cliente, calc) {
   // (opcional) 1. Despesas Operacionais – Tecnologia: só texto; o valor global cobre os itens 1 e 2
   const tec = dadosTecnologia(viab, TEXTO_TECNOLOGIA)
   const comTec = tec.incluir
-  const n = (i) => (comTec ? i + 1 : i)
+  const comDesp = calc.despAdm > 0
+  const n = (i) => (comTec ? 1 : 0) + (comDesp && i >= 2 ? 1 : 0) + i
   let rTec = null
   if (comTec) {
     rTec = r
@@ -156,6 +157,21 @@ async function sheetProposta(wb, viab, cliente, calc) {
   const rCusto = comTec ? rTec : r1
   r++
   r++
+  // Despesas Administrativas (fixa em todas as metas)
+  let rDesp = null
+  if (comDesp) {
+    rDesp = r
+    ws.getCell(r, 2).value = `${n(1) + 1}. Despesas Administrativas`
+    ws.getCell(r, 2).font = { bold: true }
+    metas.forEach((m, i) => {
+      const c = ws.getCell(r, 3 + i)
+      c.value = calc.despAdm
+      c.numFmt = BRL
+      c.font = { bold: true }
+    })
+    band(ws.getRow(r))
+    r += 2
+  }
   // 2. Taxas e Impostos
   const r2 = r
   ws.getCell(r, 2).value = `${n(2)}. Taxas e Impostos`
@@ -175,7 +191,10 @@ async function sheetProposta(wb, viab, cliente, calc) {
   metas.forEach((m, i) => {
     const col = ws.getColumn(3 + i).letter
     const c = ws.getCell(r, 3 + i)
-    c.value = { formula: `${col}${rCusto}+${col}${r2}`, result: calc.metas[m.key].custo + calc.metas[m.key].impostos }
+    c.value = {
+      formula: `${col}${rCusto}${rDesp ? `+${col}${rDesp}` : ''}+${col}${r2}`,
+      result: calc.metas[m.key].custo + calc.despAdm + calc.metas[m.key].impostos,
+    }
     c.numFmt = BRL
     c.font = { bold: true }
   })
@@ -304,27 +323,27 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
   const rs = r
   r++
   const linhasResumo = [
-    ['FATURAMENTO', (k) => calc.metas[k].faturamento],
-    ['( - ) Tributos', (k) => calc.metas[k].impostos],
-    ['( - ) Custo serviços prestados', (k) => calc.metas[k].custo],
-    ['( - ) Despesas administrativas', () => calc.despAdm],
-    ['RESULTADO (lucro)', (k) => calc.metas[k].lucro],
+    ['VALOR TOTAL MENSAL', (k) => calc.metas[k].faturamento],
+    ['( - ) Custos operacionais (custo médico)', (k) => calc.metas[k].custo],
+    ['( - ) Despesas administrativas (fixa)', () => calc.despAdm],
+    ['( - ) Taxas e impostos', (k) => calc.metas[k].impostos],
+    ['= TAXA DE ADMINISTRAÇÃO', (k) => calc.metas[k].taxaAdmLucro],
   ]
-  for (const [label, fn] of linhasResumo) {
+  for (const [label, fn, fmt] of linhasResumo) {
     ws.getCell(r, 2).value = label
     metas.forEach((m, i) => {
       ws.mergeCells(r, 3 + i * 2, r, 4 + i * 2)
       const c = ws.getCell(r, 3 + i * 2)
       c.value = fn(m.key)
-      c.numFmt = BRL
+      c.numFmt = fmt || BRL
     })
     r++
   }
-  ws.getCell(r, 2).value = 'Margem'
+  ws.getCell(r, 2).value = '% Taxa de administração (taxa ÷ total mensal = margem)'
   metas.forEach((m, i) => {
     ws.mergeCells(r, 3 + i * 2, r, 4 + i * 2)
     const c = ws.getCell(r, 3 + i * 2)
-    c.value = calc.metas[m.key].margemReal / 100
+    c.value = calc.metas[m.key].taxaAdmPct / 100
     c.numFmt = PCT
   })
   ws.getRow(rs + 1).font = { bold: true }

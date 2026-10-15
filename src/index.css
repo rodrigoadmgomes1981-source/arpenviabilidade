@@ -508,3 +508,4 @@ button.client-main.as-link { display: flex; flex-direction: column; gap: 2px; }
 .global-nota { display: block; font-size: 0.68rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
 @media print { .global-nota { color: #6b7489; } }
 .proposta-dados label.switch { flex-direction: row; align-items: center; color: #fff; font-size: 0.9rem; gap: 10px; }
+
