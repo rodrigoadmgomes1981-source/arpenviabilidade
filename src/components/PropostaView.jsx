@@ -287,7 +287,7 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
                   </td>
                   {metas.map((m) => (
                     <td key={m.key} className="num global" rowSpan={2}>
-                      {fmtBRL(calc.custoTotal)}
+                      {fmtBRL(calc.metas[m.key].custo)}
                     </td>
                   ))}
                 </tr>
@@ -300,12 +300,12 @@ export default function PropostaView({ viab, cliente, db, acoes, notify, onClose
                 {!comTec &&
                   metas.map((m) => (
                     <td key={m.key} className="num">
-                      {fmtBRL(calc.custoTotal)}
+                      {fmtBRL(calc.metas[m.key].custo)}
                     </td>
                   ))}
               </tr>
               {linha(`${n(2)}. Taxas e Impostos`, (k) => calc.metas[k].impostos, 'sec')}
-              {linha('Custo Total', (k) => calc.custoTotal + calc.metas[k].impostos, 'tot')}
+              {linha('Custo Total', (k) => calc.metas[k].custo + calc.metas[k].impostos, 'tot')}
               {linha(`${n(3)}. Taxa de Administração`, (k) => calc.metas[k].taxaAdmLucro, 'sec')}
             </tbody>
             <tfoot>

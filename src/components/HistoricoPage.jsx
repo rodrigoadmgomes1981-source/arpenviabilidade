@@ -154,7 +154,7 @@ export default function HistoricoPage({
                           <th className="num">Custo</th>
                           {metas.map((m) => (
                             <th key={m.key} className="num">
-                              Hora faturar – {m.label.replace('Meta ', '')}
+                              Pagar → faturar – {m.label.replace('Meta ', '')}
                             </th>
                           ))}
                         </tr>
@@ -168,6 +168,7 @@ export default function HistoricoPage({
                             <td className="num">{fmtBRL(it.custo)}</td>
                             {metas.map((m) => (
                               <td key={m.key} className="num">
+                                {fmtBRL(calc.metas[m.key].linhas[i].valorHoraPagar)} →{' '}
                                 {fmtBRL(calc.metas[m.key].linhas[i].valorHoraFaturar)}
                               </td>
                             ))}

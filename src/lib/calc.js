@@ -79,7 +79,9 @@ export function totalImpostosPct(impostos) {
  * Cálculo de viabilidade.
  * Faturamento = (Custo + Despesas adm.) / (1 − impostos − margem)
  * O valor da hora a faturar de cada especialidade = valor hora a pagar × (Faturamento / Custo).
- * Assim: Faturamento − Impostos − Custo − Desp. Adm. = Margem × Faturamento.
+ * Pagamento por meta: a mínima (ou única) paga o valor informado; mediana e máxima pagam
+ * valor × (Faturamento da meta ÷ Faturamento da mínima).
+ * Lucro = Faturamento − Impostos − Custo da meta − Desp. Adm.
  */
 export function calcular(viab) {
   const itens = (viab.itens || []).map((it) => {
@@ -93,12 +95,24 @@ export function calcular(viab) {
   const taxPct = totalImpostosPct(viab.impostos)
   const faixas = faixasMargem(viab.margem || {})
 
-  const metas = {}
+  // 1) Faturamento de cada meta sobre o custo informado (valor hora a pagar base)
+  const base = {}
   for (const meta of [...METAS, META_UNICA]) {
     const margemPct = faixas[meta.key]
     const divisor = 1 - taxPct / 100 - margemPct / 100
     const valido = divisor > 0 && custoTotal > 0
     const faturamento = valido ? (custoTotal + despAdm) / divisor : 0
+    base[meta.key] = { margemPct, divisor, valido, faturamento }
+  }
+
+  // 2) Pagamento acompanha o faturamento: a meta mínima (ou única) paga o valor informado e as
+  //    demais pagam mais, na mesma proporção em que o faturamento sobe em relação à mínima.
+  const fatMinima = base.minima.faturamento
+  const metas = {}
+  for (const meta of [...METAS, META_UNICA]) {
+    const { margemPct, divisor, valido, faturamento } = base[meta.key]
+    const fatorPagamento = meta.key === 'unica' || meta.key === 'minima' || !fatMinima ? 1 : faturamento / fatMinima
+    const custo = custoTotal * fatorPagamento
     const fator = valido ? faturamento / custoTotal : 0
     const impostosDet = IMPOSTOS.map((i) => ({
       ...i,
@@ -106,7 +120,7 @@ export function calcular(viab) {
       valor: (faturamento * parseNum(viab.impostos?.[i.key])) / 100,
     }))
     const impostos = impostosDet.reduce((s, i) => s + i.valor, 0)
-    const lucro = faturamento - impostos - custoTotal - despAdm
+    const lucro = faturamento - impostos - custo - despAdm
     metas[meta.key] = {
       ...meta,
       margemPct,
@@ -114,6 +128,8 @@ export function calcular(viab) {
       erro: divisor <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null,
       faturamento,
       fator,
+      fatorPagamento,
+      custo,
       impostos,
       impostosDet,
       lucro,
@@ -121,6 +137,8 @@ export function calcular(viab) {
       margemReal: faturamento ? (lucro / faturamento) * 100 : 0,
       linhas: itens.map((it) => ({
         id: it.id,
+        valorHoraPagar: it.valorHoraN * fatorPagamento,
+        custo: it.custo * fatorPagamento,
         valorHoraFaturar: it.valorHoraN * fator,
         faturamento: it.valorHoraN * fator * it.horasN,
       })),

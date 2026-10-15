@@ -25,6 +25,7 @@ function resumo(v) {
       margem: fmtPct(c.metas[m.key].margemPct),
       faturamento: c.metas[m.key].faturamento,
       lucro: c.metas[m.key].lucro,
+      custo: c.metas[m.key].custo,
     })),
     fatorPrincipal: principal.fator,
     itens: c.itens.map((it, i) => ({
@@ -42,7 +43,7 @@ function textoResumo(r) {
     `Proposta nº ${r.numero} (v${r.versao}) – ${r.tipo}`,
     `Elaboração: ${r.elaboracao} | Data/validade da proposta: ${r.proposta} | Emitida: ${r.emitida}`,
     `Tributos: ${r.tributos} | Despesas adm.: ${r.despAdm} | Total de horas/mês: ${fmtNum(r.horas)} | Custo médico/mês: ${fmtBRL(r.custo)}`,
-    ...r.metas.map((m) => `  ${m.meta} (margem ${m.margem}): faturamento ${fmtBRL(m.faturamento)} | lucro ${fmtBRL(m.lucro)}`),
+    ...r.metas.map((m) => `  ${m.meta} (margem ${m.margem}): custo médico ${fmtBRL(m.custo)} | faturamento ${fmtBRL(m.faturamento)} | lucro ${fmtBRL(m.lucro)}`),
     '  Especialidades (horas/mês | hora a pagar | hora a faturar na meta principal):',
     ...r.itens.map((i) => `   - ${i.especialidade}: ${fmtNum(i.horas)} h | ${fmtBRL(i.horaPagar)} | ${fmtBRL(i.horaFaturar)}`),
   ]
@@ -94,7 +95,7 @@ export async function gerarInsights({ cliente, viabilidades, observacoes }) {
   ].join('\n')
 
   const prompt = `Você é analista comercial da Arpen, empresa que faz gestão de serviços médicos (pronto atendimento, plantões e especialidades) para hospitais e operadoras como a Unimed.
-Compare as propostas abaixo, todas do mesmo cliente. Faturamento = (custo médico + despesas administrativas) ÷ (1 − tributos − margem).
+Compare as propostas abaixo, todas do mesmo cliente. Faturamento = (custo médico + despesas administrativas) ÷ (1 − tributos − margem). Nas metas mediana e máxima, o pagamento aos médicos sobe na mesma proporção do faturamento em relação à meta mínima.
 
 ${contexto}
 

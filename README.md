@@ -48,6 +48,15 @@ e desativar usuários.
 - **Histórico do cliente:** observações digitadas pela equipe + eventos automáticos (cadastro, viabilidade elaborada,
   editada, proposta emitida).
 
+## Cálculo
+
+```
+Faturamento da meta   = (Custo médico + Despesas adm.) / (1 − %tributos − %margem da meta)
+Hora a pagar da meta  = Hora a pagar informada × (Faturamento da meta / Faturamento da meta mínima)
+                        (a mínima e a meta única pagam o valor informado)
+Lucro                 = Faturamento − Tributos − Custo médico da meta − Despesas adm.
+```
+
 ## Estrutura
 
 ```

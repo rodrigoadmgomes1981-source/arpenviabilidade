@@ -656,8 +656,11 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                 <dl>
                   <dt>Faturamento</dt>
                   <dd className="strong">{fmtBRL(r.faturamento)}</dd>
-                  <dt>Custo total</dt>
-                  <dd>{fmtBRL(calc.custoTotal)}</dd>
+                  <dt>Custo médico</dt>
+                  <dd>
+                    {fmtBRL(r.custo)}
+                    {r.fatorPagamento !== 1 && <span className="tiny pos"> (+{fmtPct((r.fatorPagamento - 1) * 100)})</span>}
+                  </dd>
                   <dt>Tributos</dt>
                   <dd>{fmtBRL(r.impostos)}</dd>
                   <dt>Desp. adm.</dt>
@@ -677,8 +680,8 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
               <tr>
                 <th rowSpan={2}>Especialidade</th>
                 <th rowSpan={2} className="num">Horas</th>
-                <th rowSpan={2} className="num">Hora a pagar</th>
-                <th rowSpan={2} className="num">Custo total</th>
+                <th rowSpan={2} className="num">Hora a pagar (base)</th>
+                <th rowSpan={2} className="num">Custo (base)</th>
                 {sel.map((m) => (
                   <th key={m.key} colSpan={2} className={`center grp faixa-${m.key}`}>
                     {m.label}
@@ -713,12 +716,12 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
             </tbody>
             <tfoot>
               <tr>
-                <td>Total</td>
+                <td>Total (custo · faturamento)</td>
                 <td className="num">{fmtNum(calc.totalHoras)}</td>
                 <td />
                 <td className="num">{fmtBRL(calc.custoTotal)}</td>
                 {sel.map((m) => (
-                  <FragmentTot key={m.key} v={calc.metas[m.key].faturamento} />
+                  <FragmentTot key={m.key} c={calc.metas[m.key].custo} v={calc.metas[m.key].faturamento} />
                 ))}
               </tr>
             </tfoot>
@@ -741,19 +744,19 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
 
 const FragmentHead = () => (
   <>
+    <th className="num">Hora a pagar</th>
     <th className="num">Hora a faturar</th>
-    <th className="num">Faturamento</th>
   </>
 )
 const FragmentCells = ({ l }) => (
   <>
+    <td className="num">{fmtBRL(l?.valorHoraPagar)}</td>
     <td className="num">{fmtBRL(l?.valorHoraFaturar)}</td>
-    <td className="num">{fmtBRL(l?.faturamento)}</td>
   </>
 )
-const FragmentTot = ({ v }) => (
+const FragmentTot = ({ c, v }) => (
   <>
-    <td />
+    <td className="num">{fmtBRL(c)}</td>
     <td className="num">{fmtBRL(v)}</td>
   </>
 )

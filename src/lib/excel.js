@@ -147,7 +147,7 @@ async function sheetProposta(wb, viab, cliente, calc) {
   metas.forEach((m, i) => {
     if (comTec) ws.mergeCells(rTec, 3 + i, r, 3 + i)
     const c = ws.getCell(comTec ? rTec : r, 3 + i)
-    c.value = calc.custoTotal
+    c.value = calc.metas[m.key].custo
     c.numFmt = BRL
     c.font = { bold: true }
     c.alignment = { vertical: comTec ? 'middle' : 'top', horizontal: 'right' }
@@ -175,7 +175,7 @@ async function sheetProposta(wb, viab, cliente, calc) {
   metas.forEach((m, i) => {
     const col = ws.getColumn(3 + i).letter
     const c = ws.getCell(r, 3 + i)
-    c.value = { formula: `${col}${rCusto}+${col}${r2}`, result: calc.custoTotal + calc.metas[m.key].impostos }
+    c.value = { formula: `${col}${rCusto}+${col}${r2}`, result: calc.metas[m.key].custo + calc.metas[m.key].impostos }
     c.numFmt = BRL
     c.font = { bold: true }
   })
@@ -306,7 +306,7 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
   const linhasResumo = [
     ['FATURAMENTO', (k) => calc.metas[k].faturamento],
     ['( - ) Tributos', (k) => calc.metas[k].impostos],
-    ['( - ) Custo serviços prestados', () => calc.custoTotal],
+    ['( - ) Custo serviços prestados', (k) => calc.metas[k].custo],
     ['( - ) Despesas administrativas', () => calc.despAdm],
     ['RESULTADO (lucro)', (k) => calc.metas[k].lucro],
   ]
@@ -351,19 +351,19 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
       ws.getCell(r, 2).value = it.especialidade
       ws.getCell(r, 3).value = it.qualificacao === 'RQE' ? 'Com RQE' : it.qualificacao === 'POS' ? 'Com Pós' : '—'
       ws.getCell(r, 4).value = it.horasN
-      ws.getCell(r, 5).value = it.valorHoraN
-      ws.getCell(r, 6).value = { formula: `D${r}*E${r}`, result: it.custo }
+      ws.getCell(r, 5).value = ln.valorHoraPagar
+      ws.getCell(r, 6).value = { formula: `D${r}*E${r}`, result: ln.custo }
       ws.getCell(r, 7).value = ln.valorHoraFaturar
       ws.getCell(r, 8).value = { formula: `D${r}*G${r}`, result: ln.faturamento }
-      ws.getCell(r, 9).value = { formula: `H${r}-F${r}`, result: ln.faturamento - it.custo }
+      ws.getCell(r, 9).value = { formula: `H${r}-F${r}`, result: ln.faturamento - ln.custo }
       ;[5, 6, 7, 8, 9].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
       r++
     })
     ws.getCell(r, 2).value = 'TOTAL'
     ws.getCell(r, 4).value = { formula: `SUM(D${start}:D${r - 1})`, result: calc.totalHoras }
-    ws.getCell(r, 6).value = { formula: `SUM(F${start}:F${r - 1})`, result: calc.custoTotal }
+    ws.getCell(r, 6).value = { formula: `SUM(F${start}:F${r - 1})`, result: mc.custo }
     ws.getCell(r, 8).value = { formula: `SUM(H${start}:H${r - 1})`, result: mc.faturamento }
-    ws.getCell(r, 9).value = { formula: `SUM(I${start}:I${r - 1})`, result: mc.faturamento - calc.custoTotal }
+    ws.getCell(r, 9).value = { formula: `SUM(I${start}:I${r - 1})`, result: mc.faturamento - mc.custo }
     ;[6, 8, 9].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
     ws.getRow(r).font = { bold: true }
     band(ws.getRow(r), 'FFD9F3EA')
