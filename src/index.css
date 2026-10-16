@@ -509,3 +509,21 @@ button.client-main.as-link { display: flex; flex-direction: column; gap: 2px; }
 @media print { .global-nota { color: #6b7489; } }
 .proposta-dados label.switch { flex-direction: row; align-items: center; color: #fff; font-size: 0.9rem; gap: 10px; }
 
+
+/* Lista suspensa de especialidades com pesquisa */
+.esp-select { position: relative; margin-bottom: 12px; }
+.esp-select-btn { width: 100%; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px 12px; cursor: pointer; text-align: left; font: inherit; }
+.esp-select-btn > span:first-child { flex: 1; }
+.esp-select-btn svg { width: 20px; height: 20px; fill: currentColor; transition: transform .15s; }
+.esp-select.open .esp-select-btn { border-color: var(--navy, #1d3a6b); }
+.esp-select.open .esp-select-btn svg { transform: rotate(180deg); }
+.esp-select-panel { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 30, 60, .16); padding: 10px; }
+.esp-select-panel .search.full { margin-bottom: 8px; }
+.esp-select-panel .esp-list { max-height: 320px; }
+
+/* Observação e margem por especialidade */
+.esp-cell { min-width: 220px; }
+.esp-nome { display: block; font-weight: 600; margin-bottom: 4px; }
+.esp-obs { font-size: .82rem; padding: 5px 8px; }
+.margem-item { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.margem-item .num-input { width: 92px; }

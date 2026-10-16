@@ -96,6 +96,8 @@ function dadosViab(b) {
           qualificacao: ['RQE', 'POS', 'LIVRE'].includes(i.qualificacao) ? i.qualificacao : 'LIVRE',
           horas: texto(i.horas, 20),
           valorHora: texto(i.valorHora, 20),
+          margem: texto(i.margem, 20),
+          obs: texto(i.obs, 500),
         }))
       : [],
     metas: Array.isArray(b.metas) ? b.metas.filter((m) => ['minima', 'mediana', 'maxima'].includes(m)) : ['minima'],

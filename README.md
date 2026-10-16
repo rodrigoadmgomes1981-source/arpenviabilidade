@@ -51,13 +51,17 @@ e desativar usuários.
 ## Cálculo
 
 ```
-Cada meta, m = margem da meta (mínima = informada; mediana e máxima = faixas do item 4):
+Cada meta (calculado por especialidade e somado), m = margem da linha:
+  margem da linha = margem própria da especialidade (se informada) ou a margem da meta
+  (mínima = informada; mediana e máxima = faixas do item 4; a margem própria recebe a mesma variação)
   Custo médico: mínima/única = valor informado; mediana = mínima × (1 + % da faixa);
                 máxima = mediana × (1 + % da faixa)
   Despesas administrativas = valor fixo, igual em todas as metas (item à parte na proposta)
-  Valor total mensal = (Custo médico + Despesas adm.) / (1 − %tributos − m)
+  Despesas adm. rateadas entre as especialidades pelo custo médico
+  Valor da linha = (Custo médico + Desp. adm. rateada) / (1 − %tributos − m)
+  Valor total mensal = soma das linhas
   Taxa de administração = Valor total − Custo médico − Despesas adm. − Tributos
-  % Taxa de administração = Taxa ÷ Valor total  (= m)
+  % Taxa de administração = Taxa ÷ Valor total  (também por linha)
 ```
 
 ## Estrutura

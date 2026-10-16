@@ -239,6 +239,7 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
   ws.columns = [
     { width: 3 }, { width: 40 }, { width: 14 }, { width: 10 }, { width: 14 },
     { width: 16 }, { width: 18 }, { width: 18 }, { width: 18 },
+    { width: 16 }, { width: 14 }, { width: 40 },
   ]
   await addLogo(wb, ws, 1, 0)
   ws.getRow(1).height = 22
@@ -339,7 +340,7 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
     })
     r++
   }
-  ws.getCell(r, 2).value = '% Taxa de administração (taxa ÷ total mensal = margem)'
+  ws.getCell(r, 2).value = '% Taxa de administração (taxa ÷ total mensal)'
   metas.forEach((m, i) => {
     ws.mergeCells(r, 3 + i * 2, r, 4 + i * 2)
     const c = ws.getCell(r, 3 + i * 2)
@@ -357,7 +358,7 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
     ws.getCell(r, 2).value = `${m.label} – margem ${mc.margemPct.toLocaleString('pt-BR')}%`
     ws.getCell(r, 2).font = { bold: true, color: { argb: NAVY }, size: 12 }
     r++
-    const cols = ['Profissional', 'Titulação', 'Horas', 'Valor hora a pagar', 'Custo total', 'Valor hora a faturar', 'Faturamento total', 'Resultado bruto']
+    const cols = ['Profissional', 'Titulação', 'Horas', 'Valor hora a pagar', 'Custo total', 'Margem %', 'Valor hora a faturar', 'Faturamento total', 'Taxa de adm.', '% Taxa de adm.', 'Observações']
     cols.forEach((h, i) => {
       ws.getCell(r, 2 + i).value = h
       header(ws.getCell(r, 2 + i))
@@ -372,21 +373,28 @@ async function sheetViabilidade(wb, viab, cliente, calc) {
       ws.getCell(r, 4).value = it.horasN
       ws.getCell(r, 5).value = ln.valorHoraPagar
       ws.getCell(r, 6).value = { formula: `D${r}*E${r}`, result: ln.custo }
-      ws.getCell(r, 7).value = ln.valorHoraFaturar
-      ws.getCell(r, 8).value = { formula: `D${r}*G${r}`, result: ln.faturamento }
-      ws.getCell(r, 9).value = { formula: `H${r}-F${r}`, result: ln.faturamento - ln.custo }
-      ;[5, 6, 7, 8, 9].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
+      ws.getCell(r, 7).value = ln.margemPct / 100
+      ws.getCell(r, 8).value = ln.valorHoraFaturar
+      ws.getCell(r, 9).value = { formula: `D${r}*H${r}`, result: ln.faturamento }
+      ws.getCell(r, 10).value = ln.taxaAdm
+      ws.getCell(r, 11).value = { formula: `IF(I${r}=0,0,J${r}/I${r})`, result: ln.taxaAdmPct / 100 }
+      ws.getCell(r, 12).value = (it.obs || '').trim()
+      ws.getCell(r, 12).alignment = { wrapText: true, vertical: 'top' }
+      ;[5, 6, 8, 9, 10].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
+      ;[7, 11].forEach((c) => (ws.getCell(r, c).numFmt = PCT))
       r++
     })
     ws.getCell(r, 2).value = 'TOTAL'
     ws.getCell(r, 4).value = { formula: `SUM(D${start}:D${r - 1})`, result: calc.totalHoras }
     ws.getCell(r, 6).value = { formula: `SUM(F${start}:F${r - 1})`, result: mc.custo }
-    ws.getCell(r, 8).value = { formula: `SUM(H${start}:H${r - 1})`, result: mc.faturamento }
-    ws.getCell(r, 9).value = { formula: `SUM(I${start}:I${r - 1})`, result: mc.faturamento - mc.custo }
-    ;[6, 8, 9].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
+    ws.getCell(r, 9).value = { formula: `SUM(I${start}:I${r - 1})`, result: mc.faturamento }
+    ws.getCell(r, 10).value = { formula: `SUM(J${start}:J${r - 1})`, result: mc.taxaAdmLucro }
+    ws.getCell(r, 11).value = { formula: `IF(I${r}=0,0,J${r}/I${r})`, result: mc.taxaAdmPct / 100 }
+    ;[6, 9, 10].forEach((c) => (ws.getCell(r, c).numFmt = BRL))
+    ws.getCell(r, 11).numFmt = PCT
     ws.getRow(r).font = { bold: true }
     band(ws.getRow(r), 'FFD9F3EA')
-    borderAll(ws, start - 1, r, 2, 9)
+    borderAll(ws, start - 1, r, 2, 12)
     r += 2
   }
   if (viab.observacoes) {

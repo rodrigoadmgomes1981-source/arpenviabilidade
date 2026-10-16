@@ -49,6 +49,9 @@ export function diffViabilidade(antes, depois) {
     if (parseNum(old.horas) !== parseNum(it.horas)) add(`Horas – ${nomeItem(it)}`, parseNum(old.horas), parseNum(it.horas), 'num')
     if (parseNum(old.valorHora) !== parseNum(it.valorHora))
       add(`Valor hora – ${nomeItem(it)}`, parseNum(old.valorHora), parseNum(it.valorHora), 'brl')
+    if (String(old.margem ?? '').trim() !== String(it.margem ?? '').trim())
+      add(`Margem – ${nomeItem(it)}`, old.margem ? `${old.margem}%` : 'margem da meta', it.margem ? `${it.margem}%` : 'margem da meta')
+    if ((old.obs || '') !== (it.obs || '')) add(`Observação – ${nomeItem(it)}`, old.obs || '', it.obs || '')
   }
   for (const [id, it] of ia) if (!ib.has(id)) add('Especialidade removida', nomeItem(it), '')
 

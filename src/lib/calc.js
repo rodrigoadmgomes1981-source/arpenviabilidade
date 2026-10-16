@@ -94,22 +94,55 @@ export function calcular(viab) {
   const taxPct = totalImpostosPct(viab.impostos)
   const faixas = faixasMargem(viab.margem || {})
 
-  // Cada meta:
+  // Cada meta (cálculo feito linha a linha e somado):
   //  - Custo médico: a mínima (ou única) paga o valor informado; faixas encadeadas — a mediana
   //    paga +% da faixa sobre a mínima e a máxima +% da faixa sobre a mediana.
-  //  - Despesas administrativas: valor fixo (igual em todas as metas), item à parte na proposta.
-  //  - Valor total mensal = (Custo médico + Desp. adm.) ÷ (1 − tributos − margem da meta)
-  //  - Taxa de administração = Valor total − Custos operacionais − Desp. adm. − Taxas e impostos
-  //    → % da taxa = Taxa ÷ Valor total = margem informada da meta.
+  //  - Margem da linha: a margem própria do item (se informada) ou a margem da meta; nas faixas
+  //    mediana/máxima a margem própria recebe a mesma variação das faixas.
+  //  - Despesas administrativas: valor fixo (igual em todas as metas), rateado entre as linhas
+  //    pelo custo médico; item à parte na proposta.
+  //  - Valor da linha = (Custo médico + Desp. adm. rateada) ÷ (1 − tributos − margem da linha)
+  //  - Taxa de administração = Valor total mensal − Custos operacionais − Desp. adm. − Taxas e impostos
+  //    → % da taxa = Taxa ÷ Valor total mensal (na linha e no total).
   const metas = {}
   const tribFrac = taxPct / 100
+  const margemLinha = (it, key) => {
+    const propria = String(it.margem ?? '').trim()
+    if (!propria) return faixas[key]
+    const m = parseNum(propria)
+    if (key === 'minima' || key === 'unica') return m
+    if (viab.margem?.modo === 'mult') return faixas.minima ? m * (faixas[key] / faixas.minima) : m
+    return m + (faixas[key] - faixas.minima)
+  }
   const montar = (meta, fatorPagamento) => {
     const margemPct = faixas[meta.key]
-    const divisor = 1 - tribFrac - margemPct / 100
-    const valido = divisor > 0 && custoTotal > 0
-    const erro = divisor <= 0 ? 'Impostos + margem ≥ 100%' : custoTotal <= 0 ? 'Sem custos lançados' : null
     const custo = custoTotal * fatorPagamento
-    const faturamento = valido ? (custo + despAdm) / divisor : 0
+    let erro = custoTotal <= 0 ? 'Sem custos lançados' : null
+    const linhasCalc = itens.map((it) => {
+      const m = margemLinha(it, meta.key)
+      const divisor = 1 - tribFrac - m / 100
+      if (divisor <= 0 && !erro) erro = `Impostos + margem ≥ 100%${itens.length > 1 ? ` (${nomeItem(it)})` : ''}`
+      const custoL = it.custo * fatorPagamento
+      const despL = custoTotal > 0 ? (despAdm * it.custo) / custoTotal : 0
+      const fat = divisor > 0 ? (custoL + despL) / divisor : 0
+      const imp = fat * tribFrac
+      const taxa = fat - custoL - despL - imp
+      return {
+        id: it.id,
+        margemPct: m,
+        margemPropria: String(it.margem ?? '').trim() !== '',
+        valorHoraPagar: it.valorHoraN * fatorPagamento,
+        custo: custoL,
+        despAdm: despL,
+        valorHoraFaturar: it.horasN ? fat / it.horasN : 0,
+        faturamento: fat,
+        impostos: imp,
+        taxaAdm: taxa,
+        taxaAdmPct: fat ? (taxa / fat) * 100 : 0,
+      }
+    })
+    const valido = !erro
+    const faturamento = valido ? linhasCalc.reduce((s, l) => s + l.faturamento, 0) : 0
     const fator = valido && custoTotal ? faturamento / custoTotal : 0
     const impostosDet = IMPOSTOS.map((i) => ({
       ...i,
@@ -117,7 +150,9 @@ export function calcular(viab) {
       valor: (faturamento * parseNum(viab.impostos?.[i.key])) / 100,
     }))
     const impostos = impostosDet.reduce((s, i) => s + i.valor, 0)
+    // Taxa de administração = Valor total mensal − Despesas e custos operacionais − Taxas e impostos
     const taxaAdmLucro = valido ? faturamento - custo - despAdm - impostos : 0
+    const taxaAdmPct = faturamento ? (taxaAdmLucro / faturamento) * 100 : 0
     return {
       ...meta,
       margemPct,
@@ -132,17 +167,11 @@ export function calcular(viab) {
       impostos,
       impostosDet,
       taxaAdmLucro,
-      // % da taxa = Valor da taxa ÷ Valor total mensal (= margem da meta)
-      taxaAdmPct: faturamento ? (taxaAdmLucro / faturamento) * 100 : 0,
+      // % da taxa = Valor da taxa ÷ Valor total mensal
+      taxaAdmPct,
       lucro: taxaAdmLucro,
-      margemReal: faturamento ? (taxaAdmLucro / faturamento) * 100 : 0,
-      linhas: itens.map((it) => ({
-        id: it.id,
-        valorHoraPagar: it.valorHoraN * fatorPagamento,
-        custo: it.custo * fatorPagamento,
-        valorHoraFaturar: it.valorHoraN * fator,
-        faturamento: it.valorHoraN * fator * it.horasN,
-      })),
+      margemReal: taxaAdmPct,
+      linhas: linhasCalc,
     }
   }
   const fMed = 1 + faixas.mediana / 100

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, Field, NumInput, Modal, Empty } from './ui'
 import { catalogoEspecialidades, existeEspecialidade } from '../data/especialidades'
 import {
@@ -444,7 +444,7 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
   const add = (especialidade, qualificacao) =>
     setViab((v) => ({
       ...v,
-      itens: [...v.itens, { id: uid(), especialidade, qualificacao, horas: '', valorHora: '' }],
+      itens: [...v.itens, { id: uid(), especialidade, qualificacao, horas: '', valorHora: '', margem: '', obs: '' }],
     }))
   const updItem = (id, patch) =>
     setViab((v) => ({ ...v, itens: v.itens.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
@@ -456,7 +456,7 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
     <>
       <Card
         title="5. Especialidades"
-        subtitle={`${catalogo.length} especialidades disponíveis (CFM${nProprias ? ` + ${nProprias} cadastrada(s)` : ''}). Clique em “Com RQE” ou “Com Pós” para incluir.`}
+        subtitle={`${catalogo.length} especialidades disponíveis (CFM${nProprias ? ` + ${nProprias} cadastrada(s)` : ''}). Abra a lista, pesquise e clique em “Com RQE” ou “Com Pós” para incluir.`}
         actions={
           isAdmin && (
             <button className="btn ghost sm" onClick={onIrEspecialidades}>
@@ -465,36 +465,7 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
           )
         }
       >
-        <input
-          className="search full"
-          placeholder="Buscar especialidade…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div className="esp-list">
-          {lista.map(({ nome: e, origem }) => (
-            <div key={e} className="esp-row">
-              <span>
-                {e}
-                {origem === 'PROPRIA' && <span className="pill ok inline">Cadastrada</span>}
-              </span>
-              <div className="esp-btns">
-                {['RQE', 'POS'].map((ql) => (
-                  <button
-                    key={ql}
-                    className={`chip ${count(e, ql) ? 'on' : ''}`}
-                    onClick={() => add(e, ql)}
-                    title={`Adicionar ${e} ${ql === 'RQE' ? 'com RQE' : 'com Pós'}`}
-                  >
-                    {ql === 'RQE' ? 'COM RQE' : 'COM PÓS'}
-                    {count(e, ql) > 0 && <b>{count(e, ql)}</b>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {!lista.length && <p className="muted pad">Nenhuma especialidade encontrada.</p>}
-        </div>
+        <EspSelect lista={lista} q={q} setQ={setQ} count={count} add={add} total={catalogo.length} />
         <div className="custom-add">
           <input
             id="esp-custom"
@@ -547,15 +518,26 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                   <th className="num">Horas (mês)</th>
                   <th className="num">Valor hora a pagar</th>
                   <th className="num">Custo total</th>
+                  <th className="num">Margem %</th>
                   <th className="num sim-col">Hora a faturar*</th>
                   <th className="num sim-col">Faturamento*</th>
+                  <th className="num sim-col">Taxa adm.*</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {viab.itens.map((it, idx) => (
                   <tr key={it.id}>
-                    <td>{it.especialidade}</td>
+                    <td className="esp-cell">
+                      <span className="esp-nome">{it.especialidade}</span>
+                      <input
+                        className="esp-obs"
+                        value={it.obs || ''}
+                        onChange={(e) => updItem(it.id, { obs: e.target.value })}
+                        placeholder="Observações da especialidade…"
+                        aria-label={`Observações – ${nomeItem(it)}`}
+                      />
+                    </td>
                     <td>
                       <div className="seg">
                         {['RQE', 'POS'].map((ql) => (
@@ -576,8 +558,14 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                       <NumInput value={it.valorHora} onChange={(v) => updItem(it.id, { valorHora: v })} prefix="R$" />
                     </td>
                     <td className="num strong">{fmtBRL(calc.itens[idx]?.custo)}</td>
+                    <td className="num">
+                      <MargemItem it={it} updItem={updItem} padrao={calc.faixas[metaPrincipal(viab)]} />
+                    </td>
                     <td className="num sim-col">{fmtBRL(principal.linhas[idx]?.valorHoraFaturar)}</td>
                     <td className="num sim-col">{fmtBRL(principal.linhas[idx]?.faturamento)}</td>
+                    <td className="num sim-col">
+                      <TaxaLinha l={principal.linhas[idx]} />
+                    </td>
                     <td>
                       <button
                         className="btn-del"
@@ -601,14 +589,19 @@ function StepEspecialidades({ viab, setViab, calc, db, acoes, isAdmin, notify, o
                   <td />
                   <td className="num">{fmtBRL(calc.custoTotal)}</td>
                   <td />
+                  <td />
                   <td className="num sim-col">{fmtBRL(principal.faturamento)}</td>
+                  <td className="num sim-col">
+                    {fmtBRL(principal.taxaAdmLucro)} <span className="tiny muted">({fmtPct(principal.taxaAdmPct)})</span>
+                  </td>
                   <td />
                 </tr>
               </tfoot>
             </table>
             <p className="tiny muted pad">
-              * Calculado com a {principal.label.toLowerCase()} ({fmtPct(principal.margemPct)}). Ajuste a margem acima e o valor
-              hora a pagar na tabela para simular.
+              * Calculado na {principal.label.toLowerCase()}. Margem % em branco usa a margem da meta ({fmtPct(principal.margemPct)});
+              informe uma margem própria para a especialidade. Taxa adm. = faturamento − custo − desp. adm. rateada − tributos
+              (% = taxa ÷ faturamento da linha).
             </p>
           </div>
         )}
@@ -700,8 +693,9 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                 <th rowSpan={2} className="num">Horas</th>
                 <th rowSpan={2} className="num">Hora a pagar (base)</th>
                 <th rowSpan={2} className="num">Custo (base)</th>
+                <th rowSpan={2} className="num">Margem %</th>
                 {sel.map((m) => (
-                  <th key={m.key} colSpan={2} className={`center grp faixa-${m.key}`}>
+                  <th key={m.key} colSpan={4} className={`center grp faixa-${m.key}`}>
                     {m.label}
                   </th>
                 ))}
@@ -715,7 +709,10 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
             <tbody>
               {calc.itens.map((it, idx) => (
                 <tr key={it.id}>
-                  <td>{nomeItem(it)}</td>
+                  <td>
+                    {nomeItem(it)}
+                    {it.obs?.trim() && <div className="tiny muted">{it.obs.trim()}</div>}
+                  </td>
                   <td className="num">{fmtNum(it.horasN)}</td>
                   <td className="num">
                     <NumInput
@@ -726,6 +723,9 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                     />
                   </td>
                   <td className="num">{fmtBRL(it.custo)}</td>
+                  <td className="num">
+                    <MargemItem it={viab.itens[idx]} updItem={updItem} padrao={calc.faixas[metaPrincipal(viab)]} />
+                  </td>
                   {sel.map((m) => (
                     <FragmentCells key={m.key} l={calc.metas[m.key].linhas[idx]} />
                   ))}
@@ -738,8 +738,9 @@ function StepResultado({ viab, upd, setViab, calc, erro, margemBase }) {
                 <td className="num">{fmtNum(calc.totalHoras)}</td>
                 <td />
                 <td className="num">{fmtBRL(calc.custoTotal)}</td>
+                <td />
                 {sel.map((m) => (
-                  <FragmentTot key={m.key} c={calc.metas[m.key].custo} v={calc.metas[m.key].faturamento} />
+                  <FragmentTot key={m.key} r={calc.metas[m.key]} />
                 ))}
               </tr>
             </tfoot>
@@ -764,20 +765,130 @@ const FragmentHead = () => (
   <>
     <th className="num">Hora a pagar</th>
     <th className="num">Hora a faturar</th>
+    <th className="num">Margem</th>
+    <th className="num">Taxa adm.</th>
   </>
 )
 const FragmentCells = ({ l }) => (
   <>
     <td className="num">{fmtBRL(l?.valorHoraPagar)}</td>
     <td className="num">{fmtBRL(l?.valorHoraFaturar)}</td>
+    <td className="num">{fmtPct(l?.margemPct)}</td>
+    <td className="num">
+      <TaxaLinha l={l} />
+    </td>
   </>
 )
-const FragmentTot = ({ c, v }) => (
+const FragmentTot = ({ r }) => (
   <>
-    <td className="num">{fmtBRL(c)}</td>
-    <td className="num">{fmtBRL(v)}</td>
+    <td className="num">{fmtBRL(r.custo)}</td>
+    <td className="num">{fmtBRL(r.faturamento)}</td>
+    <td />
+    <td className="num">
+      {fmtBRL(r.taxaAdmLucro)} <span className="tiny muted">({fmtPct(r.taxaAdmPct)})</span>
+    </td>
   </>
 )
+
+/** Taxa de administração da linha: R$ e % (taxa ÷ faturamento da linha) */
+function TaxaLinha({ l }) {
+  if (!l) return null
+  return (
+    <>
+      {fmtBRL(l.taxaAdm)} <span className="tiny muted">({fmtPct(l.taxaAdmPct)})</span>
+    </>
+  )
+}
+
+/** Margem própria da especialidade (em branco = margem da meta) */
+function MargemItem({ it, updItem, padrao }) {
+  return (
+    <div className="margem-item">
+      <NumInput
+        value={it.margem || ''}
+        onChange={(v) => updItem(it.id, { margem: v })}
+        suffix="%"
+        placeholder={fmtNum(padrao)}
+        aria-label={`Margem % – ${nomeItem(it)}`}
+        title="Em branco usa a margem da meta"
+      />
+      {String(it.margem || '').trim() !== '' && (
+        <button type="button" className="link tiny" onClick={() => updItem(it.id, { margem: '' })} title="Voltar para a margem da meta">
+          usar da meta
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Lista suspensa de especialidades com barra de pesquisa */
+function EspSelect({ lista, q, setQ, count, add, total }) {
+  const [aberta, setAberta] = useState(false)
+  const ref = useRef(null)
+  const busca = useRef(null)
+  useEffect(() => {
+    if (!aberta) {
+      setQ('')
+      return
+    }
+    const fora = (e) => ref.current && !ref.current.contains(e.target) && setAberta(false)
+    const esc = (e) => e.key === 'Escape' && setAberta(false)
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    setTimeout(() => busca.current?.focus(), 0)
+    return () => {
+      document.removeEventListener('mousedown', fora)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [aberta])
+  return (
+    <div className={`esp-select ${aberta ? 'open' : ''}`} ref={ref}>
+      <button type="button" className="esp-select-btn" onClick={() => setAberta((a) => !a)} aria-expanded={aberta}>
+        <span>Selecione a especialidade…</span>
+        <span className="muted tiny">{total} disponíveis</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 10l5 5 5-5z" />
+        </svg>
+      </button>
+      {aberta && (
+        <div className="esp-select-panel">
+          <input
+            ref={busca}
+            className="search full"
+            placeholder="Pesquisar especialidade…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="esp-list">
+            {lista.map(({ nome: e, origem }) => (
+              <div key={e} className="esp-row">
+                <span>
+                  {e}
+                  {origem === 'PROPRIA' && <span className="pill ok inline">Cadastrada</span>}
+                </span>
+                <div className="esp-btns">
+                  {['RQE', 'POS'].map((ql) => (
+                    <button
+                      key={ql}
+                      type="button"
+                      className={`chip ${count(e, ql) ? 'on' : ''}`}
+                      onClick={() => add(e, ql)}
+                      title={`Adicionar ${e} ${ql === 'RQE' ? 'com RQE' : 'com Pós'}`}
+                    >
+                      {ql === 'RQE' ? 'COM RQE' : 'COM PÓS'}
+                      {count(e, ql) > 0 && <b>{count(e, ql)}</b>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {!lista.length && <p className="muted pad">Nenhuma especialidade encontrada. Use o campo abaixo para incluir.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Resumo({ viab, calc, cliente }) {
   return (
@@ -835,7 +946,7 @@ function MargemSimulador({ viab, setViab, calc, base }) {
   const mudou = base !== '' && base !== undefined && arred(baseN) !== arred(atual)
   const difFat =
     mudou && principal.valido
-      ? principal.faturamento - calcularFat(calc, faixas, baseN)
+      ? principal.faturamento - calcular({ ...viab, margem: { ...viab.margem, minima: base } }).metas[metaPrincipal(viab)].faturamento
       : 0
 
   return (
@@ -898,10 +1009,3 @@ function MargemSimulador({ viab, setViab, calc, base }) {
     </div>
   )
 }
-
-/** Faturamento com outra margem, para mostrar a diferença */
-function calcularFat(calc, _faixas, margemPct) {
-  const div = 1 - calc.taxPct / 100 - margemPct / 100
-  return div > 0 && calc.custoTotal > 0 ? (calc.custoTotal + calc.despAdm) / div : 0
-}
-
